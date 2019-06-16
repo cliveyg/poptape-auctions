@@ -1,4 +1,4 @@
--module(auctions_sup).
+-module(auctioneer_sup).
 -behaviour(supervisor).
 
 -export([start_link/0]).
