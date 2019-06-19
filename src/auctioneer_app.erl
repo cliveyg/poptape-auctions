@@ -5,11 +5,12 @@
 -export([stop/1]).
 
 start(_Type, _Args) ->
+	%TODO: Add constraints here?
         Dispatch = cowboy_router:compile([
             {'_', [{"/auction/status", status_handler, []},
-		   %{"/auction/join", join_handler, []},
+		   {"/auction/socket", socket_handler, []},
                    {"/auction", create_handler, []},
-		   {"/auction/mess", mess_handler, []},
+		   {"/auction/mess", message_handler, []},
                    %{"/auction/bid", bid_handler, []},
                    {"/auction/:auction_id/:public_id", auction_handler, []}]}
         ]),

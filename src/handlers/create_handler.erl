@@ -39,12 +39,12 @@ json_post(Req, State) ->
 	% not 100% sure if we need public_id - i think the checkaccess
 	% call validates user against correct uri. i'll leave it for now
 	PublicID = misc:find_value(<<"public_id">>, BodyDecoded),
-	AuctionID = misc:find_value(<<"auction_id">>, BodyDecoded),
+	ItemID = misc:find_value(<<"item_id">>, BodyDecoded),
 
-	{RetCode, Resp} = case {PublicID, AuctionID} of
+	{RetCode, Resp} = case {PublicID, ItemID} of
 		{false, _} -> create_bad_response();
 		{_, false} -> create_bad_response();
-		_ -> build_auction(PublicID, AuctionID)
+		_ -> build_auction(PublicID, ItemID)
 	end,
 
         Req3 = cowboy_req:set_resp_body(Resp, Req2),
@@ -65,18 +65,21 @@ create_bad_response() ->
 
 %------------------------------------------------------------------------------
 
-build_auction(PublicID, AuctionID) ->
+build_auction(PublicID, ItemID) ->
 	erlang:display("---- create_handler:create_response/3 ----"),
-	erlang:display(PublicID),
 
-	%ValidAuctionCode = misc:valid_auction_id(AuctionID),
-	%{RetCode, Resp} = case ValidAuctionCode of
-	{RetCode, Resp} = case misc:valid_auction_id(AuctionID) of
-		200 -> the_postman:create_exchange_and_queue(AuctionID);
+	{RetCode, Channel, Connection, Message} = case misc:valid_auction_id(ItemID) of
+		200 -> the_postman:create_exchange_and_queue(PublicID, ItemID);
 		$_ -> create_bad_response()
 	end,
+
+	% publish opening message
+	Payload = <<"{ \"foo\": \"bar\" }">>,
+	the_postman:publish_message(Channel, ItemID, Payload),
+
+	the_postman:close_all(Channel, Connection),
 	
-	{RetCode, Resp}.
+	{RetCode, Message}.
 
 %------------------------------------------------------------------------------
 

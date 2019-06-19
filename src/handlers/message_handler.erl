@@ -1,36 +1,112 @@
 -module(message_handler).
--behavior(cowboy_handler).
+%-
 
--export([init/2]).
+-export([init/2,
+	 content_types_accepted/2,
+	 json_post/2,
+	 allowed_methods/2]).
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
-init(Req0, State) ->
-	erlang:display("---- message:init/2 ----"),	
-	erlang:display(whereis(db_server)),
-	%DBServerId = whereis(db_server),
-	erlang:display("Me, myself and I"),
-	erlang:display(self()),
-	%erlang:display(DBServerId),
-	%Msg = iolist_to_binary
-	%DBServerId ! {self(), hello},
-	%gen_server:cast(DBServerId, {get_all_recs}), 
-	{ok, Connection} =
-		amqp_connection:start(#amqp_params_network{host = "localhost"}),
-	{ok, Channel} = amqp_connection:open_channel(Connection),
+%------------------------------------------------------------------------------
 
-	amqp_channel:call(Channel, #'queue.declare'{queue = <<"hello">>}),
+init(Req, State) ->
+	erlang:display("---- mess_handler:init/2 ----"),
+	{cowboy_rest, Req, State}.
 
-	amqp_channel:cast(Channel,
-			  #'basic.publish'{
-				exchange = <<"">>,
-				routing_key = <<"hello">>},
-			  #amqp_msg{payload = <<"Hello World!">>}),
-	ok = amqp_channel:close(Channel),
-	ok = amqp_connection:close(Connection),
+%------------------------------------------------------------------------------
 
-    	Req = cowboy_req:reply(418,
-        	#{<<"content-type">> => <<"application/json">>},
-        	<<"{\n\"message\": \"Run rabbit run...\"\n}">>,
-        	Req0),	
-	{ok, Req, State}.
+allowed_methods(Req, State) ->
+	erlang:display("---- mess_handler:allowed_methods/2 ----"),
+	{[<<"POST">>], Req, State}.
+
+%------------------------------------------------------------------------------
+
+%content_types_provided(Req, State) ->
+%	erlang:display("---- mess_handler:content_types_provided/2 ----"),
+%        {[
+%                {{<<"application">>, <<"json">>, []}, create_response}
+%        ], Req, State}.
+
+%------------------------------------------------------------------------------
+
+content_types_accepted(Req, State) ->
+	erlang:display("---- mess_handler:content_types_accepted/2 ----"),
+  	{[
+    		{{<<"application">>, <<"json">>, []}, json_post}
+  	], Req, State}.
+
+%------------------------------------------------------------------------------
+
+json_post(Req, State) ->
+	erlang:display("---- mess_handler:json_post/2 ----"),
+
+        {ok, Body, Req2} = cowboy_req:read_body(Req),
+        BodyDecoded = jsx:decode(Body),
+        PublicID = misc:find_value(<<"public_id">>, BodyDecoded),
+
+	{Channel, Connection} = the_postman:open_all(),
+	{_, Content} = the_postman:fetch_message(Channel, PublicID),
+	
+	Payload = case erlang:is_record(Content,'amqp_msg') of
+		false -> <<"{ \"message\": \"No more messages in queue\" }">>;
+		true -> Content#amqp_msg.payload
+	end,
+	
+	the_postman:close_all(Channel, Connection),
+	create_response(Req2, State, Payload).
+
+%------------------------------------------------------------------------------
+
+%create_response(Req, State) ->
+%
+%        Resp = "{ \"messaqe\": \"Ooopsy doo\" }",
+%        Req2 = cowboy_req:set_resp_body(Resp, Req),
+%        Req3 = cowboy_req:set_resp_header(<<"content-type">>,"application/json",Req2),
+%        cowboy_req:reply(417,Req3),
+%
+%        {stop, Req3, State}.
+
+%------------------------------------------------------------------------------
+
+create_response(Req, State, Message) ->
+
+        Req2 = cowboy_req:set_resp_body(Message, Req),
+        Req3 = cowboy_req:set_resp_header(<<"content-type">>,"application/json",Req2),
+        cowboy_req:reply(417,Req3),
+
+        {stop, Req3, State}.
+
+%------------------------------------------------------------------------------
+
+
+
+%create_bad_response() ->
+%	erlang:display("---- mess_handler:create_response/0 ----"),
+%
+%	Resp2 = "{ \"messaqe\": \"Could not create auction instance. "
+%       				 "Missing or incorrect parameter(s)\" }",
+%
+%	{422, Resp2}.
+
+%------------------------------------------------------------------------------
+
+%build_auction(PublicID, AuctionID) ->
+%	erlang:display("---- mess_handler:create_response/3 ----"),
+%	erlang:display(PublicID),
+
+	%ValidAuctionCode = misc:valid_auction_id(AuctionID),
+	%{RetCode, Resp} = case ValidAuctionCode of
+%	{RetCode, Resp} = case misc:valid_auction_id(AuctionID) of
+%		200 -> the_postman:create_exchange_and_queue(AuctionID);
+%		$_ -> create_bad_response()
+%	end,
+%	
+%	{RetCode, Resp}.
+
+%------------------------------------------------------------------------------
+
+%------------------------------------------------------------------------------
+
+%------------------------------------------------------------------------------
+
