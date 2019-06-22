@@ -19,6 +19,7 @@ init(Req, State) ->
 websocket_init(State) ->
 	erlang:display("------ socket_handler:websocket_init/2 ------"),	
 	erlang:display(State),
+
     	{reply, {text, <<"{ \"message\": \"Send nudes or JWT, your choice\" }">>}, State}.
 
 %------------------------------------------------------------------------------
@@ -54,6 +55,11 @@ accept_connection(State, UserData) ->
 	erlang:display(RetStr),
 	RetBin = erlang:list_to_binary(RetStr),
 
+        erlang:display("attempting to open connection to rabbit"),
+        {Channel, Connection} = the_postman:open_all(),
+	erlang:display(Channel),
+	erlang:display(Connection),
+
 	{reply, {text, RetBin}, State}.
 
 %------------------------------------------------------------------------------
@@ -78,6 +84,7 @@ reject_connection(State) ->
 websocket_info(_Info, State) ->
 	erlang:display("------ socket_handler:websocket_info/2 ------"),
 	erlang:display(_Info),
+	%{reply, {text, <<"{ \"message\": \"Stalking you\" }">>}, State}.
     	{ok, State}.
 
 %------------------------------------------------------------------------------

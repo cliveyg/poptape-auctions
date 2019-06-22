@@ -1,6 +1,6 @@
 -module(the_postman).
 
--export([create_exchange_and_queue/2,
+-export([create_exchange_and_queue/3,
 	 open_all/0,
 	 publish_message/3,
 	 fetch_message/2,
@@ -9,11 +9,9 @@
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
-%-record(testrec, {field1, field2}). 
-
 %------------------------------------------------------------------------------
 
-create_exchange_and_queue(PublicID, ItemID) ->
+create_exchange_and_queue(Username, ItemID, AuctionID) ->
         erlang:display("---- the_postman:create_exchange_and_queue/1 ----"),
 
 	{Channel, Connection} = open_all(),
@@ -22,28 +20,21 @@ create_exchange_and_queue(PublicID, ItemID) ->
 		     			      type = <<"fanout">>},
 	#'exchange.declare_ok'{} = amqp_channel:call(Channel, ExchangeDeclare),
 
-	%create_audit_queue(Channel, ItemID),
-
 	% create queue for user who created the auction instance
-	%#'queue.declare_ok'{queue = Queue} = amqp_channel:call(Channel, #'queue.declare'{}),
-	#'queue.declare_ok'{} = amqp_channel:call(Channel, #'queue.declare'{queue = PublicID}),
-	Binding1 = #'queue.bind'{queue       = PublicID,
-				exchange    = ItemID,
-				routing_key = <<"">>},
+	#'queue.declare_ok'{} = amqp_channel:call(Channel, #'queue.declare'{queue = Username}),
+	Binding1 = #'queue.bind'{queue       = Username,
+	       			 exchange    = ItemID,
+				 routing_key = <<"">>},
 	#'queue.bind_ok'{} = amqp_channel:call(Channel, Binding1),
 
-        %QueueString = erlang:binary_to_list(PublicID),
-        %NewQueueString = QueueString ++ "_audit",
-        %AuditQueue = erlang:list_to_binary(NewQueueString),	
-        %#'queue.declare_ok'{} = amqp_channel:call(Channel, #'queue.declare'{queue = AuditQueue}),
-        %Binding2 = #'queue.bind'{queue       = AuditQueue,
-        %                        exchange    = ItemID,
-        %                        routing_key = <<"">>},
-        %#'queue.bind_ok'{} = amqp_channel:call(Channel, Binding2),
+        % create queue for the auditor
+        #'queue.declare_ok'{} = amqp_channel:call(Channel, #'queue.declare'{queue = AuctionID}),
+        Binding2 = #'queue.bind'{queue       = AuctionID,
+                                 exchange    = ItemID,
+                                 routing_key = <<"">>},
+        #'queue.bind_ok'{} = amqp_channel:call(Channel, Binding2),
 
-	%close_all(Channel, Connection),
-
-	Message = "{ \"messaqe\": \"Message exchange and queue created\" }",
+	Message = "{ \"messaqe\": \"Message exchange and queues created\" }",
 	{201, Channel, Connection, Message}.
 
 %------------------------------------------------------------------------------
@@ -98,12 +89,12 @@ close_all(Channel, Connection) ->
 
 %------------------------------------------------------------------------------
 
-%create_audit_queue(Channel, ItemID, PublicID) ->
+%create_audit_queue(Channel, ItemID, Username) ->
 
         %QueueNameString = make_queue_name(s),
         %AuditQueueNameStr = QueueNameString++"_audit",
         %AuditQueueName = erlang:list_to_binary(AuditQueueNameStr),
-%        AuditQueueDec = #'queue.declare'{queue = PublicID},
+%        AuditQueueDec = #'queue.declare'{queue = Username},
 %        #'queue.declare_ok'{} = amqp_channel:call(Channel, AuditQueueDec),
 %        Binding = #'queue.bind'{queue       = AuditQueueName,
 %                                exchange    = ItemID,

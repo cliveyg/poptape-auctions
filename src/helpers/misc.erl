@@ -3,6 +3,8 @@
 -export([find_value/2,
 	 save_auction_instance/3,
 	 get_root_pid/1,
+	 save_my_bag/5,
+	 put_in_bag/5,
 	 valid_auction_id/1]).
 
 %------------------------------------------------------------------------------
@@ -33,6 +35,8 @@ valid_auction_id(AuctionID) ->
 	% would do that call for us
 	{ok, AuctionURL} = application:get_env(auctioneer, auctionhouse_url),
         %URL = [AuctionURL, AuctionID],
+	%TODO: maybe add x-access-token so we know auction is valid for user
+	% to create an auctioneer for?
         Headers = [{<<"Content-Type">>, <<"application/json">>}],
         Payload = <<>>,
         Options = [],
@@ -55,7 +59,7 @@ save_auction_instance(PublicID, AuctionID, UnixTime) ->
 save_it(PublicID, AuctionID, UnixTime) ->
 	erlang:display("---- misc:save_it/3 ----"),
 	ets:insert(auction, {AuctionID, [PublicID, UnixTime]}),
-	ets:delete(auction),
+	%ets:delete(auction),
 	erlang:display("end of save_it").
 
 %------------------------------------------------------------------------------
@@ -65,5 +69,18 @@ save_it(PublicID, AuctionID, UnixTime, TableName) ->
 	ets:new(TableName, [set, named_table]),
 	save_it(PublicID, AuctionID, UnixTime).
 
-	
+%------------------------------------------------------------------------------
 
+save_my_bag(AuctionID, ItemID, Username, UnixTime, BidValue) -> 
+	erlang:display("---- misc:save_my_bag/5 ----"),
+	% table name is the auction id
+	ets:new(AuctionID, [bag, named_table, public]),
+	put_in_bag(AuctionID, ItemID, Username, UnixTime, BidValue).
+
+%------------------------------------------------------------------------------
+
+put_in_bag(AuctionID, ItemID, Username, UnixTime, BidValue) ->
+	erlang:display("---- misc:put_in_bag/5 ----"),
+	% table name is auction id
+	ets:insert(AuctionID, {ItemID, Username, UnixTime, BidValue}).
+	

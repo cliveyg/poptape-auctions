@@ -11,19 +11,19 @@
 %------------------------------------------------------------------------------
 
 init(Req, State) ->
-	erlang:display("---- mess_handler:init/2 ----"),
+	erlang:display("---- message_handler:init/2 ----"),
 	{cowboy_rest, Req, State}.
 
 %------------------------------------------------------------------------------
 
 allowed_methods(Req, State) ->
-	erlang:display("---- mess_handler:allowed_methods/2 ----"),
+	erlang:display("---- message_handler:allowed_methods/2 ----"),
 	{[<<"POST">>], Req, State}.
 
 %------------------------------------------------------------------------------
 
 %content_types_provided(Req, State) ->
-%	erlang:display("---- mess_handler:content_types_provided/2 ----"),
+%	erlang:display("---- message_handler:content_types_provided/2 ----"),
 %        {[
 %                {{<<"application">>, <<"json">>, []}, create_response}
 %        ], Req, State}.
@@ -31,7 +31,7 @@ allowed_methods(Req, State) ->
 %------------------------------------------------------------------------------
 
 content_types_accepted(Req, State) ->
-	erlang:display("---- mess_handler:content_types_accepted/2 ----"),
+	erlang:display("---- message_handler:content_types_accepted/2 ----"),
   	{[
     		{{<<"application">>, <<"json">>, []}, json_post}
   	], Req, State}.
@@ -39,7 +39,7 @@ content_types_accepted(Req, State) ->
 %------------------------------------------------------------------------------
 
 json_post(Req, State) ->
-	erlang:display("---- mess_handler:json_post/2 ----"),
+	erlang:display("---- message_handler:json_post/2 ----"),
 
         {ok, Body, Req2} = cowboy_req:read_body(Req),
         BodyDecoded = jsx:decode(Body),
@@ -70,7 +70,8 @@ json_post(Req, State) ->
 %------------------------------------------------------------------------------
 
 create_response(Req, State, Message) ->
-
+	erlang:display("---- message_handler:create_response/3 ----"),
+	%socket_handler:websocket_info("WOO",State),
         Req2 = cowboy_req:set_resp_body(Message, Req),
         Req3 = cowboy_req:set_resp_header(<<"content-type">>,"application/json",Req2),
         cowboy_req:reply(417,Req3),
@@ -82,7 +83,7 @@ create_response(Req, State, Message) ->
 
 
 %create_bad_response() ->
-%	erlang:display("---- mess_handler:create_response/0 ----"),
+%	erlang:display("---- message_handler:create_response/0 ----"),
 %
 %	Resp2 = "{ \"messaqe\": \"Could not create auction instance. "
 %       				 "Missing or incorrect parameter(s)\" }",
@@ -92,7 +93,7 @@ create_response(Req, State, Message) ->
 %------------------------------------------------------------------------------
 
 %build_auction(PublicID, AuctionID) ->
-%	erlang:display("---- mess_handler:create_response/3 ----"),
+%	erlang:display("---- message_handler:create_response/3 ----"),
 %	erlang:display(PublicID),
 
 	%ValidAuctionCode = misc:valid_auction_id(AuctionID),

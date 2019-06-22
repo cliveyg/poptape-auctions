@@ -30,6 +30,7 @@ content_types_accepted(Req, State) ->
 
 json_post(Req, State) ->
 	erlang:display("---- create_handler:json_post/2 ----"),
+	erlang:display(os:timestamp()),
         % check for valid x-access-token here. tried to do 
         % this in init but cowboy really didn't like it
         the_bouncer:checks_guestlist(Req, State, <<"10">>),
@@ -38,13 +39,15 @@ json_post(Req, State) ->
 	BodyDecoded = jsx:decode(Body),
 	% not 100% sure if we need public_id - i think the checkaccess
 	% call validates user against correct uri. i'll leave it for now
-	PublicID = misc:find_value(<<"public_id">>, BodyDecoded),
+	Username = misc:find_value(<<"username">>, BodyDecoded),
 	ItemID = misc:find_value(<<"item_id">>, BodyDecoded),
+	Bid = misc:find_value(<<"bid">>, BodyDecoded),
+	AuctionID = cowboy_req:binding(auction_id, Req),
 
-	{RetCode, Resp} = case {PublicID, ItemID} of
+	{RetCode, Resp} = case {Username, ItemID} of
 		{false, _} -> create_bad_response();
 		{_, false} -> create_bad_response();
-		_ -> build_auction(PublicID, ItemID)
+		_ -> build_auction_messaging(Username, ItemID, AuctionID, Bid)
 	end,
 
         Req3 = cowboy_req:set_resp_body(Resp, Req2),
@@ -60,24 +63,30 @@ create_bad_response() ->
 
 	Resp2 = "{ \"messaqe\": \"Could not create auction instance. "
        				 "Missing or incorrect parameter(s)\" }",
-
 	{422, Resp2}.
 
 %------------------------------------------------------------------------------
 
-build_auction(PublicID, ItemID) ->
+build_auction_messaging(Username, ItemID, AuctionID, Bid) ->
 	erlang:display("---- create_handler:create_response/3 ----"),
 
-	{RetCode, Channel, Connection, Message} = case misc:valid_auction_id(ItemID) of
-		200 -> the_postman:create_exchange_and_queue(PublicID, ItemID);
+	%{RetCode, Channel, Connection, Message} = case misc:valid_auction_id(ItemID) of
+	{RetCode, Channel, _, Message} = case misc:valid_auction_id(ItemID) of
+		200 -> the_postman:create_exchange_and_queue(Username, ItemID, AuctionID);
 		$_ -> create_bad_response()
 	end,
 
+	%TODO: This is where we need to publish the opening bid and put it in our bag
 	% publish opening message
 	Payload = <<"{ \"foo\": \"bar\" }">>,
+	erlang:display(Bid),
 	the_postman:publish_message(Channel, ItemID, Payload),
+	P = spawn_link(the_listener, main, [Channel, Username]),
+	erlang:display(P),
+	erlang:display("=-=-=-=-=-=-=-=-=-=-=-="),
 
-	the_postman:close_all(Channel, Connection),
+
+	%the_postman:close_all(Channel, Connection),
 	
 	{RetCode, Message}.
 
