@@ -9,42 +9,42 @@
 
 %------------------------------------------------------------------------------
 
-init(Req, State) ->
+init(Req, Opts) ->
 	erlang:display("------ socket_handler:init/2 ------"),
-	%{cowboy_websocket, Req, State}.
-    	{cowboy_websocket, Req, State, #{idle_timeout => 3000000}}.
+	%{cowboy_websocket, Req, Opts}.
+	erlang:display(Opts),
+    	{cowboy_websocket, Req, Opts, #{idle_timeout => 3000000}}.
 
 %------------------------------------------------------------------------------
 
-websocket_init(State) ->
+websocket_init(Opts) ->
 	erlang:display("------ socket_handler:websocket_init/2 ------"),	
-	erlang:display(State),
+	erlang:display(Opts),
 
-    	{reply, {text, <<"{ \"message\": \"Send nudes or JWT, your choice\" }">>}, State}.
+    	{reply, {text, <<"{ \"message\": \"Send nudes or JWT, your choice\" }">>}, Opts}.
 
 %------------------------------------------------------------------------------
 
-websocket_handle({text, Json}, State) ->
+websocket_handle({text, Json}, Opts) ->
 	erlang:display("------ socket_handler:websocket_handle/2 [1] ------"),
 	erlang:display(Json),
 	JsonDecoded = jsx:decode(Json),
         XAccessToken = misc:find_value(<<"x-access-token">>, JsonDecoded),
 	UserData = misc:find_value(<<"user_data">>, JsonDecoded),
 
-	%RetBin = 
 	case the_bouncer:checks_socket_guestlist(XAccessToken) of
-		true -> accept_connection(State, UserData);
-		false -> reject_connection(State)
+		true -> accept_connection(Opts, UserData);
+		false -> reject_connection(Opts)
 	end;
-	%{reply, {text, RetBin}, State};
-websocket_handle(_Frame, State) ->
+	%{reply, {text, RetBin}, Opts};
+websocket_handle(_Frame, Opts) ->
         erlang:display("------ socket_handler:websocket_handle/2 [2] ------"),
         erlang:display(_Frame),
-        {ok, State}.
+        {ok, Opts}.
 
 %------------------------------------------------------------------------------
 	
-accept_connection(State, UserData) ->
+accept_connection(Opts, UserData) ->
 	erlang:display("------ socket_handler:accept_connection/1 ------"),
 	erlang:display(UserData),
 	RetStr = case UserData of
@@ -60,7 +60,7 @@ accept_connection(State, UserData) ->
 	erlang:display(Channel),
 	erlang:display(Connection),
 
-	{reply, {text, RetBin}, State}.
+	{reply, {text, RetBin}, Opts}.
 
 %------------------------------------------------------------------------------
 
@@ -74,24 +74,24 @@ make_string(UserData) ->
 
 %------------------------------------------------------------------------------
 
-reject_connection(State) ->
+reject_connection(Opts) ->
 	erlang:display("------ socket_handler:reject_connection/1 ------"),
-	{reply, {text, <<"{ \"message\": \"Get outta here\" }">>}, State}.
-	%{stop, State}.
+	{reply, {text, <<"{ \"message\": \"Get outta here\" }">>}, Opts}.
+	%{stop, Opts}.
 
 %------------------------------------------------------------------------------
 
-websocket_info(_Info, State) ->
+websocket_info(_Info, Opts) ->
 	erlang:display("------ socket_handler:websocket_info/2 ------"),
 	erlang:display(_Info),
-	%{reply, {text, <<"{ \"message\": \"Stalking you\" }">>}, State}.
-    	{ok, State}.
+	%{reply, {text, <<"{ \"message\": \"Stalking you\" }">>}, Opts}.
+    	{ok, Opts}.
 
 %------------------------------------------------------------------------------
 
-websocket_terminate(Reason, Req, State) -> 
+websocket_terminate(Reason, Req, Opts) -> 
 	erlang:display("------ socket_handler:websocket_terminate/3 ------"),
 	erlang:display(Reason),
 	erlang:display(Req),
-	erlang:display(State),
+	erlang:display(Opts),
 	ok.

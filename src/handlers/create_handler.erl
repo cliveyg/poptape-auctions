@@ -8,32 +8,32 @@
 
 %------------------------------------------------------------------------------
 
-init(Req, State) ->
+init(Req, Opts) ->
 	erlang:display("---- create_handler:init/2 ----"),
-	{cowboy_rest, Req, State}.
+	{cowboy_rest, Req, Opts}.
 
 %------------------------------------------------------------------------------
 
-allowed_methods(Req, State) ->
+allowed_methods(Req, Opts) ->
 	erlang:display("---- create_handler:allowed_methods/2 ----"),
-	{[<<"POST">>], Req, State}.
+	{[<<"POST">>], Req, Opts}.
 
 %------------------------------------------------------------------------------
 
-content_types_accepted(Req, State) ->
+content_types_accepted(Req, Opts) ->
 	erlang:display("---- create_handler:content_types_accepted/2 ----"),
   	{[
     		{{<<"application">>, <<"json">>, []}, json_post}
-  	], Req, State}.
+  	], Req, Opts}.
 
 %------------------------------------------------------------------------------
 
-json_post(Req, State) ->
+json_post(Req, Opts) ->
 	erlang:display("---- create_handler:json_post/2 ----"),
 	erlang:display(os:timestamp()),
         % check for valid x-access-token here. tried to do 
         % this in init but cowboy really didn't like it
-        the_bouncer:checks_guestlist(Req, State, <<"10">>),
+        the_bouncer:checks_guestlist(Req, Opts, <<"10">>),
 
 	{ok, Body, Req2} = cowboy_req:read_body(Req),
 	BodyDecoded = jsx:decode(Body),
@@ -41,20 +41,20 @@ json_post(Req, State) ->
 	% call validates user against correct uri. i'll leave it for now
 	Username = misc:find_value(<<"username">>, BodyDecoded),
 	ItemID = misc:find_value(<<"item_id">>, BodyDecoded),
-	Bid = misc:find_value(<<"bid">>, BodyDecoded),
+	StartPrice = misc:find_value(<<"start_price">>, BodyDecoded),
 	AuctionID = cowboy_req:binding(auction_id, Req),
 
-	{RetCode, Resp} = case {Username, ItemID} of
+	{RetCode, Message} = case {Username, ItemID} of
 		{false, _} -> create_bad_response();
 		{_, false} -> create_bad_response();
-		_ -> build_auction_messaging(Username, ItemID, AuctionID, Bid)
+		_ -> build_auction_messaging(Username, ItemID, AuctionID, StartPrice)
 	end,
 
-        Req3 = cowboy_req:set_resp_body(Resp, Req2),
+        Req3 = cowboy_req:set_resp_body(Message, Req2),
 	Req4 = cowboy_req:set_resp_header(<<"content-type">>,"application/json",Req3),
 	cowboy_req:reply(RetCode,Req4),
 
-  	{stop, Req4, State}.
+  	{stop, Req4, Opts}.
 
 %------------------------------------------------------------------------------
 
@@ -67,32 +67,18 @@ create_bad_response() ->
 
 %------------------------------------------------------------------------------
 
-build_auction_messaging(Username, ItemID, AuctionID, Bid) ->
-	erlang:display("---- create_handler:create_response/3 ----"),
+build_auction_messaging(Username, ItemID, AuctionID, StartPrice) ->
+	erlang:display("---- create_handler:build_auction_messaging/4 ----"),
 
 	%{RetCode, Channel, Connection, Message} = case misc:valid_auction_id(ItemID) of
-	{RetCode, Channel, _, Message} = case misc:valid_auction_id(ItemID) of
-		200 -> the_postman:create_exchange_and_queue(Username, ItemID, AuctionID);
+	{RetCode, Message} = case misc:valid_auction_id(ItemID) of
+		200 -> the_postman:create_exchange_and_queues(Username, ItemID, AuctionID, StartPrice);
 		$_ -> create_bad_response()
 	end,
-
-	%TODO: This is where we need to publish the opening bid and put it in our bag
-	% publish opening message
-	Payload = <<"{ \"foo\": \"bar\" }">>,
-	erlang:display(Bid),
-	the_postman:publish_message(Channel, ItemID, Payload),
-	P = spawn_link(the_listener, main, [Channel, Username]),
-	erlang:display(P),
-	erlang:display("=-=-=-=-=-=-=-=-=-=-=-="),
-
 
 	%the_postman:close_all(Channel, Connection),
 	
 	{RetCode, Message}.
-
-%------------------------------------------------------------------------------
-
-%------------------------------------------------------------------------------
 
 %------------------------------------------------------------------------------
 

@@ -1,20 +1,19 @@
 -module(the_postman).
 
--export([create_exchange_and_queue/3,
+-export([create_exchange_and_queues/4,
 	 open_all/0,
 	 publish_message/3,
 	 fetch_message/2,
-	 %make_queue_name/1,
 	 close_all/2]).
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
 %------------------------------------------------------------------------------
 
-create_exchange_and_queue(Username, ItemID, AuctionID) ->
-        erlang:display("---- the_postman:create_exchange_and_queue/1 ----"),
+create_exchange_and_queues(Username, ItemID, AuctionID, StartPrice) ->
+        erlang:display("---- the_postman:create_exchange_and_queue/4 ----"),
 
-	{Channel, Connection} = open_all(),
+	{Channel, _} = open_all(),
 
 	ExchangeDeclare = #'exchange.declare'{exchange = ItemID,
 		     			      type = <<"fanout">>},
@@ -28,14 +27,31 @@ create_exchange_and_queue(Username, ItemID, AuctionID) ->
 	#'queue.bind_ok'{} = amqp_channel:call(Channel, Binding1),
 
         % create queue for the auditor
-        #'queue.declare_ok'{} = amqp_channel:call(Channel, #'queue.declare'{queue = AuctionID}),
-        Binding2 = #'queue.bind'{queue       = AuctionID,
+	% NOTE: Queue and Exchange both use ItemID as name
+        #'queue.declare_ok'{} = amqp_channel:call(Channel, #'queue.declare'{queue = ItemID}),
+        Binding2 = #'queue.bind'{queue       = ItemID,
                                  exchange    = ItemID,
                                  routing_key = <<"">>},
         #'queue.bind_ok'{} = amqp_channel:call(Channel, Binding2),
 
-	Message = "{ \"messaqe\": \"Message exchange and queues created\" }",
-	{201, Channel, Connection, Message}.
+	%TODO: Maybe spawn seperate processes for these ops as they can run parallel
+	UnixTime = erlang:universaltime(), 
+        misc:save_my_bag(AuctionID, ItemID, Username, UnixTime, StartPrice), 
+	Payload = [{username, Username}, 
+		   {item_id, ItemID},
+		   {auction_id, AuctionID},
+		   {price, StartPrice},
+		   {end_time, true},
+		   {unix_time, UnixTime},
+		   {message, <<"Opening price">>}],
+	JsonPayload = jsx:encode(Payload),
+	erlang:display(JsonPayload),
+        the_postman:publish_message(Channel, ItemID, JsonPayload),
+        %P = spawn_link(the_listener, main, [Channel, Username]),
+        %erlang:display(P),
+	spawn_link(the_listener, main, [Channel, Username]),
+
+	{201, JsonPayload}.
 
 %------------------------------------------------------------------------------
 

@@ -1,7 +1,6 @@
 -module(misc).
 
 -export([find_value/2,
-	 save_auction_instance/3,
 	 get_root_pid/1,
 	 save_my_bag/5,
 	 put_in_bag/5,
@@ -12,7 +11,6 @@
 get_root_pid(CurrentPID) ->
 	erlang:display("---- misc:get_root_pid/1 ----"),
 	erlang:display(CurrentPID).
-
 
 %------------------------------------------------------------------------------
 
@@ -47,40 +45,16 @@ valid_auction_id(AuctionID) ->
 
 %------------------------------------------------------------------------------
 
-save_auction_instance(PublicID, AuctionID, UnixTime) ->
-	erlang:display("save_auction_instance"),
-	case lists:member(auction,ets:all()) of
-		true -> save_it(PublicID, AuctionID, UnixTime);
-		false -> save_it(PublicID, AuctionID, UnixTime, auction)
-	end.
-
-%------------------------------------------------------------------------------
-
-save_it(PublicID, AuctionID, UnixTime) ->
-	erlang:display("---- misc:save_it/3 ----"),
-	ets:insert(auction, {AuctionID, [PublicID, UnixTime]}),
-	%ets:delete(auction),
-	erlang:display("end of save_it").
-
-%------------------------------------------------------------------------------
-
-save_it(PublicID, AuctionID, UnixTime, TableName) ->
-        erlang:display("---- misc:save_it/4 ----"),
-	ets:new(TableName, [set, named_table]),
-	save_it(PublicID, AuctionID, UnixTime).
-
-%------------------------------------------------------------------------------
-
 save_my_bag(AuctionID, ItemID, Username, UnixTime, BidValue) -> 
 	erlang:display("---- misc:save_my_bag/5 ----"),
-	% table name is the auction id
-	ets:new(AuctionID, [bag, named_table, public]),
+	ets:new(bid_table, [bag, public, named_table]),
 	put_in_bag(AuctionID, ItemID, Username, UnixTime, BidValue).
 
 %------------------------------------------------------------------------------
 
 put_in_bag(AuctionID, ItemID, Username, UnixTime, BidValue) ->
 	erlang:display("---- misc:put_in_bag/5 ----"),
-	% table name is auction id
-	ets:insert(AuctionID, {ItemID, Username, UnixTime, BidValue}).
+	% not sure of this due to potential size this table could reach
+	% TODO: delete old entries after auction is finished
+	ets:insert(bid_table, {AuctionID, ItemID, Username, UnixTime, BidValue}).
 	

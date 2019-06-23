@@ -5,13 +5,13 @@
 
 %------------------------------------------------------------------------------
 
-checks_guestlist(Req, State, Level) ->
+checks_guestlist(Req, Opts, Level) ->
 	erlang:display("---- the_bouncer:checks_guestlist/2 ----"),
         XAccessToken = cowboy_req:header(<<"x-access-token">>, Req, ''),
 
 	case XAccessToken of
-		'' -> bad_dog(Req, State);
-		_ -> good_boye(XAccessToken, Level, Req, State)
+		'' -> bad_dog(Req, Opts);
+		_ -> good_boye(XAccessToken, Level, Req, Opts)
         end.
 
 %------------------------------------------------------------------------------
@@ -98,7 +98,7 @@ create_table(XAccessToken) ->
 
 %------------------------------------------------------------------------------
 
-good_boye(XAccessToken, Level, Req, State) ->
+good_boye(XAccessToken, Level, Req, Opts) ->
 	erlang:display("---- the_bouncer:good_boye/3 ----"),
 	% get auth url from app config
 	{ok, BaseURL} = application:get_env(auctioneer, authy_url),
@@ -112,18 +112,18 @@ good_boye(XAccessToken, Level, Req, State) ->
                                                  Options),	
 	case StatusCode of
 		200 -> ok;
-		401 -> bad_dog(Req, State);
-		_ -> bad_dog(Req, State)
+		401 -> bad_dog(Req, Opts);
+		_ -> bad_dog(Req, Opts)
 	end.
 
 %------------------------------------------------------------------------------
 
-bad_dog(Req, State) ->
+bad_dog(Req, Opts) ->
 	erlang:display("---- the_bouncer:bad_dog/2 ----"),
 	Message = <<"{\"message\": \"Yer name's not down\"}">>,
 	cowboy_req:reply(401,
                         #{<<"content-type">> => <<"application/json">>}, 
 			Message, Req),
-        {stop, Req, State}.	
+        {stop, Req, Opts}.	
 	
 %------------------------------------------------------------------------------
