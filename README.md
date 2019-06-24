@@ -12,9 +12,9 @@ The auction owner sends an http post to an endpoint of `/auction/<auction_id>`
 The post has the usual x-access-token JWT header as well as the following json
 fields:
 ```
-item\_id
+item_id
 username
-start\_price
+start_price
 ```
 The microservice then creates an exchange on RabbitMQ of type 'fanout' with an id 
 of item\_id. This type of exchange allows a pub/sub model to be used. The service 
