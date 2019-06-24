@@ -54,7 +54,6 @@ check_authy(XAccessToken) ->
 
 token_in_ets(XAccessToken) ->
         erlang:display("---- the_bouncer:token_in_ets/1 ----"),
-	erlang:display(ets:whereis(jwttable)),
 	case ets:whereis(jwttable) of
 		undefined -> false;
 		_ -> proper_lookup(XAccessToken)
@@ -83,7 +82,6 @@ store_in_ets(XAccessToken) ->
 put_in_table(XAccessToken) ->
 	erlang:display("---- the_bouncer:put_in_table/1 ----"),
 	% use key of XAccessToken value 
-	erlang:display(XAccessToken),
 	ets:insert(jwttable, {XAccessToken, fab}),
 	true.
 

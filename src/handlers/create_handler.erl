@@ -72,17 +72,12 @@ create_bad_response() ->
 build_auction_messaging(Username, ItemID, AuctionID, StartPrice) ->
 	erlang:display("---- create_handler:build_auction_messaging/4 ----"),
 
-	%{RetCode, Channel, Connection, Message} = case misc:valid_auction_id(ItemID) of
 	{RetCode, Message, Channel} = case misc:valid_auction_id(ItemID) of
 		200 -> the_postman:create_exchange_and_queues(Username, ItemID, AuctionID, StartPrice);
 		$_ -> create_bad_response()
 	end,
 
-	erlang:display(Channel),
-	ListenPID = spawn_link(the_listener, main, [Channel, Username, self()]),
-	erlang:display("listen pid is..."),
-	erlang:display(ListenPID),
-	%the_postman:close_all(Channel, Connection),
+	spawn_link(the_listener, main, [Channel, Username, self()]),
 	
 	{RetCode, Message}.
 

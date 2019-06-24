@@ -13,6 +13,8 @@
 init(Req, _) ->
 	erlang:display("------ bid_handler:init/2 ------"),
 	%TODO: Sanitize input!
+	% we capture the route info here as Req doesn't get 
+	% passed on to the websocket methods
 	AuctionID = cowboy_req:binding(auction_id, Req),
 	ItemID = cowboy_req:binding(item_id, Req),
 	Opts = [{auction_id, AuctionID}, {item_id, ItemID}],
@@ -48,16 +50,14 @@ websocket_handle({text, Json}, Opts) ->
 	end;
 websocket_handle(_Frame, Opts) ->
 	% this handles anything that's not text
-        erlang:display("------ bid_handler:websocket_handle/2 [3] ------"),
-        erlang:display(_Frame),
+        %erlang:display("------ bid_handler:websocket_handle/2 [3] ------"),
         {ok, Opts}.
 
 %------------------------------------------------------------------------------
 
 accept_connection(Opts, UserData) ->
 	erlang:display("------ bid_handler:accept_connection/1 ------"),
-        erlang:display("attempting to open connection to rabbit"),
-	%TODO: need to check if auction is valid and live
+	%TODO: maybe need to check if auction/item is valid and live
 	Username = proplists:get_value(username, UserData),
 	{JsonPayload, Channel} = the_postman:create_bidder_queue(
 			    		Username, 
@@ -66,12 +66,9 @@ accept_connection(Opts, UserData) ->
 					proplists:get_value(bid_amount, UserData)),
 	erlang:display(Channel),
 
-	ListenPID = spawn_link(the_listener, main, [Channel, Username, self()]),
-        erlang:display("listen pid is..."),
-        erlang:display(ListenPID),
-	% at the mo we just send the incoming data back
-	%JsonPayload = jsx:encode(UserData),
-	%erlang:display(JsonPayload),
+	% seperate process to listen for rabbit messages - returns 
+	% any found to websocket_info method
+	spawn_link(the_listener, main, [Channel, Username, self()]),
 
 	{reply, {text, JsonPayload}, Opts}.
 
@@ -127,9 +124,6 @@ send_ping(Count, Opts) ->
 
 %------------------------------------------------------------------------------
 
-websocket_terminate(Reason, Req, Opts) -> 
-	erlang:display("------ bid_handler:websocket_terminate/3 ------"),
-	erlang:display(Reason),
-	erlang:display(Req),
-	erlang:display(Opts),
+%websocket_terminate(Reason, Req, Opts) -> 
+websocket_terminate(_, _, _) ->
 	ok.
