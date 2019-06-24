@@ -6,6 +6,7 @@
 	    {host, "localhost"},
 	    {user, <<"username">>},
 	    {pass, <<"supersecretpass">>}
+	    {virtual_host, <<"vhost">>}
 	]}
     ]}
 ].

@@ -42,11 +42,13 @@ json_post(Req, Opts) ->
 	Username = misc:find_value(<<"username">>, BodyDecoded),
 	ItemID = misc:find_value(<<"item_id">>, BodyDecoded),
 	StartPrice = misc:find_value(<<"start_price">>, BodyDecoded),
-	AuctionID = cowboy_req:binding(auction_id, Req),
+	AuctionID = cowboy_req:binding(auction_id, Req, false),
 
-	{RetCode, Message} = case {Username, ItemID} of
-		{false, _} -> create_bad_response();
-		{_, false} -> create_bad_response();
+	{RetCode, Message} = case {Username, ItemID, StartPrice, AuctionID} of
+		{false, _, _, _} -> create_bad_response();
+		{_, false, _, _} -> create_bad_response();
+		{_, _, false, _} -> create_bad_response();
+		{_, _, _, false} -> create_bad_response();
 		_ -> build_auction_messaging(Username, ItemID, AuctionID, StartPrice)
 	end,
 
@@ -71,11 +73,15 @@ build_auction_messaging(Username, ItemID, AuctionID, StartPrice) ->
 	erlang:display("---- create_handler:build_auction_messaging/4 ----"),
 
 	%{RetCode, Channel, Connection, Message} = case misc:valid_auction_id(ItemID) of
-	{RetCode, Message} = case misc:valid_auction_id(ItemID) of
+	{RetCode, Message, Channel} = case misc:valid_auction_id(ItemID) of
 		200 -> the_postman:create_exchange_and_queues(Username, ItemID, AuctionID, StartPrice);
 		$_ -> create_bad_response()
 	end,
 
+	erlang:display(Channel),
+	ListenPID = spawn_link(the_listener, main, [Channel, Username, self()]),
+	erlang:display("listen pid is..."),
+	erlang:display(ListenPID),
 	%the_postman:close_all(Channel, Connection),
 	
 	{RetCode, Message}.

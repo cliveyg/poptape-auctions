@@ -1,6 +1,7 @@
 -module(the_postman).
 
 -export([create_exchange_and_queues/4,
+	 create_bidder_queue/4,
 	 open_all/0,
 	 publish_message/3,
 	 fetch_message/2,
@@ -12,6 +13,7 @@
 
 create_exchange_and_queues(Username, ItemID, AuctionID, StartPrice) ->
         erlang:display("---- the_postman:create_exchange_and_queue/4 ----"),
+	erlang:display(ItemID),
 
 	{Channel, _} = open_all(),
 
@@ -40,18 +42,53 @@ create_exchange_and_queues(Username, ItemID, AuctionID, StartPrice) ->
 	Payload = [{username, Username}, 
 		   {item_id, ItemID},
 		   {auction_id, AuctionID},
+                   {exchange, ItemID},
+                   {queues, [Username, ItemID]},
 		   {price, StartPrice},
 		   {end_time, true},
 		   {unix_time, UnixTime},
 		   {message, <<"Opening price">>}],
 	JsonPayload = jsx:encode(Payload),
-	erlang:display(JsonPayload),
-        the_postman:publish_message(Channel, ItemID, JsonPayload),
-        %P = spawn_link(the_listener, main, [Channel, Username]),
-        %erlang:display(P),
-	spawn_link(the_listener, main, [Channel, Username]),
+	%erlang:display(JsonPayload),
+        publish_message(Channel, ItemID, JsonPayload),
+	%ListenPID = spawn_link(the_listener, main, [Channel, Username]),
 
-	{201, JsonPayload}.
+	{201, JsonPayload, Channel}.
+
+%------------------------------------------------------------------------------
+
+create_bidder_queue(Username, ItemID, AuctionID, StartPrice) ->
+        erlang:display("---- the_postman:create_bidder_queue/4 ----"),
+	erlang:display(ItemID),
+        {Channel, _} = open_all(),
+
+        % create queue for bidder
+        #'queue.declare_ok'{} = amqp_channel:call(Channel, #'queue.declare'{queue = Username}),
+        Binding1 = #'queue.bind'{queue       = Username,
+                                 exchange    = ItemID,
+                                 routing_key = <<"">>},
+        #'queue.bind_ok'{} = amqp_channel:call(Channel, Binding1),
+
+        %TODO: Get latest bid from ets
+	
+	%Maybe spawn seperate processes for these ops as they can run parallel
+        UnixTime = erlang:universaltime(),
+        %misc:save_my_bag(AuctionID, ItemID, Username, UnixTime, StartPrice),
+        Payload = [{username, Username},
+                   {item_id, ItemID},
+                   {auction_id, AuctionID},
+		   {exchange, ItemID},
+		   {queues, [Username]},
+                   {price, StartPrice},
+                   {end_time, true},
+                   {unix_time, UnixTime},
+                   {message, <<"Your bid">>}],
+        
+	JsonPayload = jsx:encode(Payload),
+	%TODO: Get all old stuff from ets and publish to bidders new queue
+        %publish_message(Channel, ItemID, JsonPayload),
+
+        {JsonPayload, Channel}.
 
 %------------------------------------------------------------------------------
 
@@ -77,12 +114,14 @@ open_all() ->
 	Host = misc:find_value(host, RabbitConfig),
 	User = misc:find_value(user, RabbitConfig),
 	Pass = misc:find_value(pass, RabbitConfig),
-	
+	VHost = misc:find_value(virtual_host, RabbitConfig),
+	erlang:display(VHost),
+
         {ok, Connection} =
                 amqp_connection:start(#amqp_params_network{host = Host,
-							   username = User,
-							   virtual_host = <<"poptape-auctions">>,
-							   password = Pass}),
+						   username = User,
+						   virtual_host = VHost,
+						   password = Pass}),
 	{ok, Channel} = amqp_connection:open_channel(Connection),	
         
 	{Channel, Connection}.	
@@ -94,33 +133,4 @@ close_all(Channel, Connection) ->
         ok = amqp_connection:close(Connection).
 
 %------------------------------------------------------------------------------
-
-%make_queue_name(OutType) ->
-%    	[A,B,C] = string:tokens(erlang:pid_to_list(self()),"<>."),
-%	NameAsList = "consumer-" ++ A ++ "-" ++ B ++ "-" ++ C,
-%	case OutType of
-%		s -> NameAsList;
-%		b -> erlang:list_to_binary(NameAsList)
-%	end.
-
-%------------------------------------------------------------------------------
-
-%create_audit_queue(Channel, ItemID, Username) ->
-
-        %QueueNameString = make_queue_name(s),
-        %AuditQueueNameStr = QueueNameString++"_audit",
-        %AuditQueueName = erlang:list_to_binary(AuditQueueNameStr),
-%        AuditQueueDec = #'queue.declare'{queue = Username},
-%        #'queue.declare_ok'{} = amqp_channel:call(Channel, AuditQueueDec),
-%        Binding = #'queue.bind'{queue       = AuditQueueName,
-%                                exchange    = ItemID,
-%                                routing_key = <<"">>},
-%        #'queue.bind_ok'{} = amqp_channel:call(Channel, Binding),
-%	ok.
-
-%------------------------------------------------------------------------------
-	
-%declare_queue() ->
-%	erlang:display("---- the_postman:declare_queue/0 ----"),
-
 
