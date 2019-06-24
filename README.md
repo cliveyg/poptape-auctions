@@ -50,10 +50,11 @@ Currently we return a whole load of data but this will undoubtably be reduced in
 to the bare minimum. 
 
 #### Extra bits:
-All queues and exchanges on on a RabbitMQ virtual host as set in the microservice config file.
+All queues and exchanges are on a RabbitMQ virtual host as set in the microservice config file.
+This virtual host needs to be created seperately via the Rabbit CLI or web interface.
 Due to websockets, by default, having a timeout of 60 secs I've instigated a timer that sends
 a 'ping' websocket frame back to the client/browser to keep the connection alive. Browsers
-automatically respond with a pong websocket frame. 
+automatically respond with a 'pong' websocket frame. 
 
 Cowboy docs recommend that cowboy only respond to pings and not send pings as too many 
 timers on the webserver could be a bad thing. However there doesn't exist a facility in the 
@@ -68,8 +69,10 @@ TBD
 ```
 
 ### Notes:
-* Very early pre-alpha. Works(ish).
+* Very early pre-alpha. Works(ish). No data sanitization or much other checking.
 
 ### TODO:
 * Make bidder queue name unique on username and item\_id.
+* Sanitize the input data.
+* Only currently designed for a traditional English style auction.
 * Most of it!
