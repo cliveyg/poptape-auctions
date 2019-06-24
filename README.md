@@ -8,7 +8,7 @@ webserver and RabbitMQ as well as ets tables.
 #### The Process:
 
 ##### Auction Owner:
-The auction owner sends an http post to an endpoint of `/auction/\<auction\_id\>`
+The auction owner sends an http post to an endpoint of `/auction/<auction_id>`
 The post has the usual x-access-token JWT header as well as the following json
 fields:
 ```
@@ -32,7 +32,7 @@ the x-access-token field with the JWT as the content of this field.
 If the websocket connection is lost then the ets table entry is deleted and any 
 subsequent connections need to be reverified against the authenication service.
 
-The bidder comes in on an URL endpoint of `/auction/\<auction\_id\>/\<item\_id\>` and 
+The bidder comes in on an URL endpoint of `/auction/<auction_id>/<item_id>` and 
 sends the data listed below in a Json format (as well as the x-access-token JWT) in the 
 websocket body:
 ```
