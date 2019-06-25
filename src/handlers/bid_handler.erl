@@ -59,16 +59,19 @@ accept_connection(Opts, UserData) ->
 	erlang:display("------ bid_handler:accept_connection/1 ------"),
 	%TODO: maybe need to check if auction/item is valid and live
 	Username = proplists:get_value(username, UserData),
-	{JsonPayload, Channel} = the_postman:create_bidder_queue(
+	ItemID = proplists:get_value(item_id, UserData),
+	%{Channel, Connection} = the_postman:create_bidder_queue(
+	{Channel, _} = the_postman:create_bidder_queue(
 			    		Username, 
-		  			proplists:get_value(item_id, UserData),
-					proplists:get_value(auction_id, UserData),
-					proplists:get_value(bid_amount, UserData)),
-	erlang:display(Channel),
+		  			ItemID),
 
 	% seperate process to listen for rabbit messages - returns 
 	% any found to websocket_info method
-	spawn_link(the_listener, main, [Channel, Username, self()]),
+	Queue = misc:binary_join([ItemID, Username], <<"_">>),
+	spawn_link(the_listener, main, [Channel, Queue, self()]),
+
+	OutData = lists:append(UserData, [{endtime, 123456789}]), 
+	JsonPayload = jsx:encode(OutData),
 
 	{reply, {text, JsonPayload}, Opts}.
 
@@ -82,6 +85,7 @@ reject_connection(Opts) ->
 
 websocket_info(_Info, Opts) ->
 	erlang:display("------ bid_handler:websocket_info/2 ------"),
+	erlang:display(_Info),
 
 	% ping checker because websockets shuts down too soon by default
 	case erlang:element(1, _Info) of

@@ -6,6 +6,7 @@
 
 main(Channel, Queue, CallingPID) ->
     erlang:display("------ the_listener:main/2 ------"),
+    erlang:display(Queue),
 
     amqp_channel:subscribe(Channel, #'basic.consume'{queue = Queue,
                                                      no_ack = true}, self()),

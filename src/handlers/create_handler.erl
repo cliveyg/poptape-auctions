@@ -6,6 +6,8 @@
 	 json_post/2,
 	 allowed_methods/2]).
 
+
+
 %------------------------------------------------------------------------------
 
 init(Req, Opts) ->
@@ -42,14 +44,18 @@ json_post(Req, Opts) ->
 	Username = misc:find_value(<<"username">>, BodyDecoded),
 	ItemID = misc:find_value(<<"item_id">>, BodyDecoded),
 	StartPrice = misc:find_value(<<"start_price">>, BodyDecoded),
+	Endtime = misc:find_value(<<"endtime">>, BodyDecoded),
 	AuctionID = cowboy_req:binding(auction_id, Req, false),
 
-	{RetCode, Message} = case {Username, ItemID, StartPrice, AuctionID} of
-		{false, _, _, _} -> create_bad_response();
-		{_, false, _, _} -> create_bad_response();
-		{_, _, false, _} -> create_bad_response();
-		{_, _, _, false} -> create_bad_response();
-		_ -> build_auction_messaging(Username, ItemID, AuctionID, StartPrice)
+	% matrix for checking the needed fields exist
+	{RetCode, Message} = case {Username, ItemID, StartPrice, AuctionID, Endtime} of
+		{false, _, _, _, _} -> create_bad_response();
+		{_, false, _, _, _} -> create_bad_response();
+		{_, _, false, _, _} -> create_bad_response();
+		{_, _, _, false, _} -> create_bad_response();
+		{_, _, _, _, false} -> create_bad_response();		     
+		_ -> build_auction_messaging(Username, ItemID, 
+					     AuctionID, StartPrice, Endtime)
 	end,
 
         Req3 = cowboy_req:set_resp_body(Message, Req2),
@@ -69,17 +75,53 @@ create_bad_response() ->
 
 %------------------------------------------------------------------------------
 
-build_auction_messaging(Username, ItemID, AuctionID, StartPrice) ->
+build_auction_messaging(Username, ItemID, AuctionID, StartPrice, Endtime) ->
 	erlang:display("---- create_handler:build_auction_messaging/4 ----"),
 
-	{RetCode, Message, Channel} = case misc:valid_auction_id(ItemID) of
-		200 -> the_postman:create_exchange_and_queues(Username, ItemID, AuctionID, StartPrice);
-		$_ -> create_bad_response()
+	%{RetCode, Channel, Connection} = case misc:valid_auction_id(ItemID) of
+	{RetCode, Channel, _} = case misc:valid_auction_id(ItemID) of
+		200 -> the_postman:create_exchange_and_queues(Username, ItemID);
+		_ -> create_bad_response()
 	end,
 
-	spawn_link(the_listener, main, [Channel, Username, self()]),
+	Q2 = misc:binary_join([ItemID, Username], <<"_">>),
+	spawn_link(the_listener, main, [Channel, Q2, self()]),
+
+        %Maybe spawn seperate processes for these ops as they can run parallel
+        UnixTime = erlang:universaltime(),
+        %misc:save_my_bag(AuctionID, ItemID, Username, UnixTime, StartPrice),
+        Payload = [{username, Username},
+                   {item_id, ItemID},
+                   {auction_id, AuctionID},
+                   {exchange, ItemID},
+                   {queues, [Username, Q2]},
+                   {price, StartPrice},
+                   {endtime, Endtime},
+                   {unixtime, UnixTime},
+		   {status, <<"running">>},
+                   {message, <<"Your starting price">>}],
+
+        % we need to create an ets table for controlling current
+        % winning bid
+        misc:load_initial_bid(Username, ItemID, AuctionID, StartPrice, Endtime),
+
+        JsonPayload = jsx:encode(Payload),
+        %TODO: Get all old stuff from ets and publish to bidders new queue
+        %publish_message(Channel, ItemID, JsonPayload),
+	% publish first message direct to audit queue and second to exchange
+	the_postman:publish_direct_to_queue(Channel, ItemID, JsonPayload),
+	MinDetails = [{username, Username},
+		      {item_id, ItemID},
+		      {bid, StartPrice},
+		      {endtime, Endtime},
+		      {unixtime, UnixTime},
+		      {status, <<"open">>},
+		      {message, <<"Opening price">>},
+		      {auction_id, AuctionID}],
+	JsonDetails = jsx:encode(MinDetails),
+	the_postman:publish_message(Channel, Q2, JsonDetails),
 	
-	{RetCode, Message}.
+	{RetCode, JsonDetails}.
 
 %------------------------------------------------------------------------------
 

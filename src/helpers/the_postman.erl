@@ -1,9 +1,10 @@
 -module(the_postman).
 
--export([create_exchange_and_queues/4,
-	 create_bidder_queue/4,
+-export([create_exchange_and_queues/2,
+	 create_bidder_queue/2,
 	 open_all/0,
 	 publish_message/3,
+	 publish_direct_to_queue/3,
 	 fetch_message/2,
 	 close_all/2]).
 
@@ -11,84 +12,53 @@
 
 %------------------------------------------------------------------------------
 
-create_exchange_and_queues(Username, ItemID, AuctionID, StartPrice) ->
-        erlang:display("---- the_postman:create_exchange_and_queue/4 ----"),
+create_exchange_and_queues(Username, ItemID) ->
+        erlang:display("---- the_postman:create_exchange_and_queue/2 ----"),
 	erlang:display(ItemID),
 
-	{Channel, _} = open_all(),
+	{Channel, Connection} = open_all(),
 
 	ExchangeDeclare = #'exchange.declare'{exchange = ItemID,
 		     			      type = <<"fanout">>},
 	#'exchange.declare_ok'{} = amqp_channel:call(Channel, ExchangeDeclare),
 
 	% create queue for user who created the auction instance
-	#'queue.declare_ok'{} = amqp_channel:call(Channel, #'queue.declare'{queue = Username}),
-	Binding1 = #'queue.bind'{queue       = Username,
+	% queues name need to be unqiue and a user could have more than one queue
+	% so queue name of item and username should be unqiue
+	QueueName = misc:binary_join([ItemID, Username], <<"_">>),
+	#'queue.declare_ok'{} = amqp_channel:call(Channel, #'queue.declare'{queue = QueueName}),
+	Binding1 = #'queue.bind'{queue       = QueueName,
 	       			 exchange    = ItemID,
 				 routing_key = <<"">>},
 	#'queue.bind_ok'{} = amqp_channel:call(Channel, Binding1),
 
         % create queue for the auditor
 	% NOTE: Queue and Exchange both use ItemID as name
-        #'queue.declare_ok'{} = amqp_channel:call(Channel, #'queue.declare'{queue = ItemID}),
+	% auditor queue is durable and persists
+        #'queue.declare_ok'{} = amqp_channel:call(Channel, #'queue.declare'{queue = ItemID,
+									    durable = true}),
         Binding2 = #'queue.bind'{queue       = ItemID,
                                  exchange    = ItemID,
                                  routing_key = <<"">>},
         #'queue.bind_ok'{} = amqp_channel:call(Channel, Binding2),
 
-	%TODO: Maybe spawn seperate processes for these ops as they can run parallel
-	UnixTime = erlang:universaltime(), 
-        misc:save_my_bag(AuctionID, ItemID, Username, UnixTime, StartPrice), 
-	Payload = [{username, Username}, 
-		   {item_id, ItemID},
-		   {auction_id, AuctionID},
-                   {exchange, ItemID},
-                   {queues, [Username, ItemID]},
-		   {price, StartPrice},
-		   {end_time, true},
-		   {unix_time, UnixTime},
-		   {message, <<"Opening price">>}],
-	JsonPayload = jsx:encode(Payload),
-	%erlang:display(JsonPayload),
-        publish_message(Channel, ItemID, JsonPayload),
-	%ListenPID = spawn_link(the_listener, main, [Channel, Username]),
-
-	{201, JsonPayload, Channel}.
+	{201, Channel, Connection}.
 
 %------------------------------------------------------------------------------
 
-create_bidder_queue(Username, ItemID, AuctionID, StartPrice) ->
+create_bidder_queue(Username, ItemID) ->
         erlang:display("---- the_postman:create_bidder_queue/4 ----"),
-	erlang:display(ItemID),
-        {Channel, _} = open_all(),
+        {Channel, Connection} = open_all(),
 
         % create queue for bidder
-        #'queue.declare_ok'{} = amqp_channel:call(Channel, #'queue.declare'{queue = Username}),
-        Binding1 = #'queue.bind'{queue       = Username,
+	QueueName = misc:binary_join([ItemID, Username], <<"_">>),
+        #'queue.declare_ok'{} = amqp_channel:call(Channel, #'queue.declare'{queue = QueueName}),
+        Binding1 = #'queue.bind'{queue       = QueueName,
                                  exchange    = ItemID,
                                  routing_key = <<"">>},
         #'queue.bind_ok'{} = amqp_channel:call(Channel, Binding1),
 
-        %TODO: Get latest bid from ets
-	
-	%Maybe spawn seperate processes for these ops as they can run parallel
-        UnixTime = erlang:universaltime(),
-        %misc:save_my_bag(AuctionID, ItemID, Username, UnixTime, StartPrice),
-        Payload = [{username, Username},
-                   {item_id, ItemID},
-                   {auction_id, AuctionID},
-		   {exchange, ItemID},
-		   {queues, [Username]},
-                   {price, StartPrice},
-                   {end_time, true},
-                   {unix_time, UnixTime},
-                   {message, <<"Your bid">>}],
-        
-	JsonPayload = jsx:encode(Payload),
-	%TODO: Get all old stuff from ets and publish to bidders new queue
-        %publish_message(Channel, ItemID, JsonPayload),
-
-        {JsonPayload, Channel}.
+        {Channel, Connection}.
 
 %------------------------------------------------------------------------------
 
@@ -97,6 +67,14 @@ publish_message(Channel, Exchange, Payload) ->
 	Publish = #'basic.publish'{exchange = Exchange, routing_key = <<"">>},
 	amqp_channel:cast(Channel, Publish, #amqp_msg{payload = Payload}),
 	ok.
+
+%------------------------------------------------------------------------------
+
+publish_direct_to_queue(Channel, ItemID, Payload) ->
+        erlang:display("---- the_postman:publish_direct_to_queue/3 ----"),
+        Publish = #'basic.publish'{exchange = <<"">>, routing_key = ItemID},
+        amqp_channel:cast(Channel, Publish, #amqp_msg{payload = Payload}),
+        ok.	
 
 %------------------------------------------------------------------------------
 
