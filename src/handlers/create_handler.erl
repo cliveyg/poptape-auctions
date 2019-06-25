@@ -3,7 +3,9 @@
 
 -export([init/2,
 	 content_types_accepted/2,
+	 content_types_provided/2,
 	 json_post/2,
+	 json_get/2,
 	 allowed_methods/2]).
 
 
@@ -27,6 +29,20 @@ content_types_accepted(Req, Opts) ->
   	{[
     		{{<<"application">>, <<"json">>, []}, json_post}
   	], Req, Opts}.
+
+%------------------------------------------------------------------------------
+
+content_types_provided(Req, Opts) ->
+        erlang:display("---- create_handler:content_types_provided/2 ----"),
+        {[
+                {{<<"application">>, <<"json">>, []}, json_get}
+        ], Req, Opts}.
+
+%------------------------------------------------------------------------------
+
+json_get(Req, Opts) ->
+        erlang:display("---- create_handler:json_get/2 ----"),
+	{stop, Req, Opts}.
 
 %------------------------------------------------------------------------------
 
@@ -85,11 +101,12 @@ build_auction_messaging(Username, ItemID, AuctionID, StartPrice, Endtime) ->
 	end,
 
 	Q2 = misc:binary_join([ItemID, Username], <<"_">>),
-	spawn_link(the_listener, main, [Channel, Q2, self()]),
+	% don't spawn a listener as it consumes the message and
+	% can't do anything with it
+	%spawn_link(the_listener, main, [Channel, Q2, self()]),
 
         %Maybe spawn seperate processes for these ops as they can run parallel
         UnixTime = erlang:universaltime(),
-        %misc:save_my_bag(AuctionID, ItemID, Username, UnixTime, StartPrice),
         Payload = [{username, Username},
                    {item_id, ItemID},
                    {auction_id, AuctionID},
@@ -103,13 +120,18 @@ build_auction_messaging(Username, ItemID, AuctionID, StartPrice, Endtime) ->
 
         % we need to create an ets table for controlling current
         % winning bid
-        misc:load_initial_bid(Username, ItemID, AuctionID, StartPrice, Endtime),
+        %misc:load_initial_bid(Username, ItemID, AuctionID, StartPrice, Endtime),
+	gen_server:call(db_server, {create_db}),
+	PutRes = gen_server:call(db_server, {create_rec, ItemID, {Username, AuctionID, StartPrice, Endtime}}),
+	erlang:display(PutRes),
 
         JsonPayload = jsx:encode(Payload),
-        %TODO: Get all old stuff from ets and publish to bidders new queue
         %publish_message(Channel, ItemID, JsonPayload),
+	
+
 	% publish first message direct to audit queue and second to exchange
 	the_postman:publish_direct_to_queue(Channel, ItemID, JsonPayload),
+	
 	MinDetails = [{username, Username},
 		      {item_id, ItemID},
 		      {bid, StartPrice},
@@ -119,7 +141,7 @@ build_auction_messaging(Username, ItemID, AuctionID, StartPrice, Endtime) ->
 		      {message, <<"Opening price">>},
 		      {auction_id, AuctionID}],
 	JsonDetails = jsx:encode(MinDetails),
-	the_postman:publish_message(Channel, Q2, JsonDetails),
+	the_postman:publish_message(Channel, ItemID, JsonDetails),
 	
 	{RetCode, JsonDetails}.
 

@@ -72,7 +72,7 @@ TBD
 * Very early pre-alpha. Works(ish). No data sanitization or much other checking.
 
 ### TODO:
-* Make bidder queue name unique on username and item\_id.
+* ~~Make bidder queue name unique on username and item\_id.~~
 * Sanitize the input data.
 * Only currently designed for a traditional English style auction.
 * Most of it!

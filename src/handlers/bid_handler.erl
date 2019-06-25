@@ -4,7 +4,7 @@
   	 websocket_init/1,
 	 websocket_handle/2,
 	 websocket_info/2,
-	 websocket_terminate/3]).
+	 terminate/3]).
 
 -define(SOCKET_INTERVAL, 50000).
 
@@ -38,14 +38,16 @@ websocket_handle({text, Json}, Opts) ->
         Username = misc:find_value(<<"username">>, JsonDecoded),
         BidAmount = misc:find_value(<<"bid_amount">>, JsonDecoded),
         XAccessToken = misc:find_value(<<"x-access-token">>, JsonDecoded),
+	Created = misc:find_value(<<"created">>, JsonDecoded),
 	InputPropList = [{username, Username},
 			 {bid_amount, BidAmount},
 			 {x_access_token, XAccessToken},
+			 {created, Created},
 			 {auction_id, proplists:get_value(auction_id, Opts)},
 			 {item_id, proplists:get_value(item_id, Opts)}],
 
 	case the_bouncer:checks_socket_guestlist(XAccessToken) of
-		true -> accept_connection([], InputPropList);
+		true -> accept_connection(InputPropList);
 		false -> reject_connection([])
 	end;
 websocket_handle(_Frame, Opts) ->
@@ -55,25 +57,41 @@ websocket_handle(_Frame, Opts) ->
 
 %------------------------------------------------------------------------------
 
-accept_connection(Opts, UserData) ->
+accept_connection(UserData) ->
 	erlang:display("------ bid_handler:accept_connection/1 ------"),
 	%TODO: maybe need to check if auction/item is valid and live
 	Username = proplists:get_value(username, UserData),
 	ItemID = proplists:get_value(item_id, UserData),
-	%{Channel, Connection} = the_postman:create_bidder_queue(
-	{Channel, _} = the_postman:create_bidder_queue(
-			    		Username, 
-		  			ItemID),
+
+	{Channel, Connection} = the_postman:create_bidder_queue(Username, ItemID),
 
 	% seperate process to listen for rabbit messages - returns 
 	% any found to websocket_info method
 	Queue = misc:binary_join([ItemID, Username], <<"_">>),
 	spawn_link(the_listener, main, [Channel, Queue, self()]),
 
-	OutData = lists:append(UserData, [{endtime, 123456789}]), 
+	%TODO read ets here
+	erlang:display("WOOOO"),
+	erlang:display(ItemID),
+	LatestBid = ets:lookup(bidtable, ItemID),
+	erlang:display(LatestBid),
+
+	OutData = [{username, Username},
+		   {bid, proplists:get_value(bid_amount, UserData)},
+		   {item_id, ItemID},
+		   {endtime, 12942936428},
+		   {status, <<"accepted">>},
+		   {message, <<"Bid accepted">>}],
+
 	JsonPayload = jsx:encode(OutData),
 
-	{reply, {text, JsonPayload}, Opts}.
+	% publish to the queue to return data to user via websocket_info
+	the_postman:publish_message(Channel, ItemID, JsonPayload),
+
+	% pass these around so we can shut down 
+	% the rabbitmq connection gracefully
+	Opts = [{channel, Channel},{connection, Connection}],
+	{ok, Opts}.
 
 %------------------------------------------------------------------------------
 
@@ -82,16 +100,17 @@ reject_connection(Opts) ->
 	{stop, Opts}.
 
 %------------------------------------------------------------------------------
+% websocket_info like handler_info in a genserver captures all callback outputs
 
 websocket_info(_Info, Opts) ->
 	erlang:display("------ bid_handler:websocket_info/2 ------"),
-	erlang:display(_Info),
 
 	% ping checker because websockets shuts down too soon by default
 	case erlang:element(1, _Info) of
 		timeout -> fetch_ping([erlang:element(3, _Info)], Opts);
 		ping -> count_ping(erlang:element(2, _Info), Opts);
 		rabbit_dropping -> show_me_the_money(_Info, Opts);
+		'EXIT' -> cheery_bye(_Info, Opts);
 		_ -> {ok, Opts}	
 	end.
 
@@ -100,6 +119,15 @@ websocket_info(_Info, Opts) ->
 show_me_the_money(Dropping, Opts) ->
 	erlang:display("------ bid_handler:show_me_the_money/2 ------"),
 	Mess = erlang:element(2,Dropping),
+	{reply, {text, Mess}, Opts}.
+
+%------------------------------------------------------------------------------
+
+cheery_bye(_, Opts) ->
+	erlang:display("------ bid_handler:cheery_bye/2 ------"),
+        the_postman:close_all(proplists:get_value(channel, Opts),
+                              proplists:get_value(connection, Opts)),
+	Mess = <<"{ \"message\": \"right, that's it i'm done\" }">>,
 	{reply, {text, Mess}, Opts}.
 
 %------------------------------------------------------------------------------
@@ -128,6 +156,8 @@ send_ping(Count, Opts) ->
 
 %------------------------------------------------------------------------------
 
-%websocket_terminate(Reason, Req, Opts) -> 
-websocket_terminate(_, _, _) ->
+terminate(_, _, Opts) ->
+	erlang:display("------ bid_handler:terminate/3 ------"),
+	the_postman:close_all(proplists:get_value(channel, Opts),
+			      proplists:get_value(connection, Opts)),
 	ok.
