@@ -75,4 +75,4 @@ TBD
 * ~~Make bidder queue name unique on username and item\_id.~~
 * Sanitize the input data.
 * Only currently designed for a traditional English style auction.
-* Most of it!
+* Need to think about pulling messages into auctionhouse microservice.

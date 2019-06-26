@@ -106,7 +106,7 @@ build_auction_messaging(Username, ItemID, AuctionID, StartPrice, Endtime) ->
 	%spawn_link(the_listener, main, [Channel, Q2, self()]),
 
         %Maybe spawn seperate processes for these ops as they can run parallel
-        UnixTime = erlang:universaltime(),
+	UnixTime = misc:get_milly_time(),
         Payload = [{username, Username},
                    {item_id, ItemID},
                    {auction_id, AuctionID},
@@ -118,16 +118,7 @@ build_auction_messaging(Username, ItemID, AuctionID, StartPrice, Endtime) ->
 		   {status, <<"running">>},
                    {message, <<"Your starting price">>}],
 
-        % we need to create an ets table for controlling current
-        % winning bid
-        %misc:load_initial_bid(Username, ItemID, AuctionID, StartPrice, Endtime),
-	gen_server:call(db_server, {create_db}),
-	PutRes = gen_server:call(db_server, {create_rec, ItemID, {Username, AuctionID, StartPrice, Endtime}}),
-	erlang:display(PutRes),
-
         JsonPayload = jsx:encode(Payload),
-        %publish_message(Channel, ItemID, JsonPayload),
-	
 
 	% publish first message direct to audit queue and second to exchange
 	the_postman:publish_direct_to_queue(Channel, ItemID, JsonPayload),
@@ -142,6 +133,10 @@ build_auction_messaging(Username, ItemID, AuctionID, StartPrice, Endtime) ->
 		      {auction_id, AuctionID}],
 	JsonDetails = jsx:encode(MinDetails),
 	the_postman:publish_message(Channel, ItemID, JsonDetails),
+
+        % put starting bid in the db
+        gen_server:call(db_server, {create_db}),
+        gen_server:call(db_server, {create_rec, ItemID, MinDetails}),
 	
 	{RetCode, JsonDetails}.
 

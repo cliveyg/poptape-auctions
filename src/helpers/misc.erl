@@ -1,6 +1,7 @@
 -module(misc).
 
 -export([find_value/2,
+	 get_milly_time/0,
 	 binary_join/2,
 	 valid_auction_id/1]).
 
@@ -12,6 +13,14 @@ find_value(Key, List) ->
                 {Key, Result} -> Result;
                 false -> false
         end.
+
+%------------------------------------------------------------------------------
+
+get_milly_time() ->
+	{Mega, Secs, Microsecs} = os:timestamp(),
+	TotSecs = (Mega*1000000)+Secs,
+	Milly = (TotSecs*1000) + (Microsecs/1000),
+	erlang:round(Milly).
 
 %------------------------------------------------------------------------------
 

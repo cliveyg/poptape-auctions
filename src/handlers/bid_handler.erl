@@ -70,18 +70,42 @@ accept_connection(UserData) ->
 	Queue = misc:binary_join([ItemID, Username], <<"_">>),
 	spawn_link(the_listener, main, [Channel, Queue, self()]),
 
-	%TODO read ets here
-	erlang:display("WOOOO"),
-	erlang:display(ItemID),
-	LatestBid = ets:lookup(bidtable, ItemID),
-	erlang:display(LatestBid),
+	{Res, DBData} = gen_server:call(db_server, {get_rec, ItemID}),
 
-	OutData = [{username, Username},
-		   {bid, proplists:get_value(bid_amount, UserData)},
-		   {item_id, ItemID},
-		   {endtime, 12942936428},
-		   {status, <<"accepted">>},
-		   {message, <<"Bid accepted">>}],
+	case Res of
+		ok -> erlang:display("you got data!");
+		error -> erlang:display("bad ting's")
+	end,
+
+	YourBid = proplists:get_value(bid_amount, UserData),
+	Endtime = proplists:get_value(endtime, DBData),
+
+	UnixTime = misc:get_milly_time(),
+	StoredBid = proplists:get_value(bid, DBData),
+
+	{Status, Message, LatestBid, CurrentWinner} = 
+	case check_bids(YourBid, StoredBid, UnixTime, Endtime)  of
+		{true, true} -> {<<"open">>, <<"Winning bid">>, 
+			         YourBid, proplists:get_value(username, UserData)};
+		{false, true} -> {<<"open">>, <<"Bid failed">>, 	
+			          StoredBid, proplists:get_value(username, DBData)};
+		{_, false} -> {<<"closed">>, <<"Bidding finished">>, 
+			       StoredBid, proplists:get_value(username, DBData)}
+	end,
+
+        OutData = [{username, Username},
+                   {item_id, ItemID},
+                   {unixtime, UnixTime},
+                   {bid, LatestBid},
+                   {status, Status},
+                   {message, Message},
+                   {auction_id, proplists:get_value(auction_id, DBData)},
+                   {endtime, Endtime}],
+
+	case CurrentWinner == proplists:get_value(username, UserData) of
+		true -> gen_server:call(db_server, {create_rec, ItemID, OutData});
+		false -> ok
+	end,
 
 	JsonPayload = jsx:encode(OutData),
 
@@ -92,6 +116,11 @@ accept_connection(UserData) ->
 	% the rabbitmq connection gracefully
 	Opts = [{channel, Channel},{connection, Connection}],
 	{ok, Opts}.
+
+%------------------------------------------------------------------------------
+
+check_bids(YourBid, StoredBid, UnixTime, Endtime) ->
+	{YourBid > StoredBid, UnixTime < Endtime}.
 
 %------------------------------------------------------------------------------
 
