@@ -1,18 +1,18 @@
 -module(the_bouncer).
 
 -export([checks_guestlist/3,
-	 checks_socket_guestlist/1]).
+	 	 checks_socket_guestlist/1]).
 
 %------------------------------------------------------------------------------
 
 checks_guestlist(Req, Opts, Level) ->
 	erlang:display("---- the_bouncer:checks_guestlist/2 ----"),
-        XAccessToken = cowboy_req:header(<<"x-access-token">>, Req, ''),
+    XAccessToken = cowboy_req:header(<<"x-access-token">>, Req, ''),
 
 	case XAccessToken of
 		'' -> bad_dog(Req, Opts);
 		_ -> good_boye(XAccessToken, Level, Req, Opts)
-        end.
+    end.
 
 %------------------------------------------------------------------------------
 % we check the jwt against the authy microservice just once when using 
@@ -22,7 +22,7 @@ checks_guestlist(Req, Opts, Level) ->
 % faster.
 
 checks_socket_guestlist(XAccessToken) ->
-        erlang:display("---- the_bouncer:checks_socket_guestlist/1 ----"),
+    erlang:display("---- the_bouncer:checks_socket_guestlist/1 ----"),
 
 	case token_in_ets(XAccessToken) of
 		true -> true;
@@ -33,27 +33,27 @@ checks_socket_guestlist(XAccessToken) ->
 % websocket auth call to authy
 check_authy(XAccessToken) ->
 	erlang:display("---- the_bouncer:check_authy/1 ----"),
-        {ok, BaseURL} = application:get_env(auctioneer, authy_url),
-        URL = [BaseURL, <<"10">>],
-        Headers = [{<<"Content-Type">>, <<"application/json">>},
-                   {<<"x-access-token">>, XAccessToken}],
-        Payload = <<>>,
-        Options = [],
-        {ok, StatusCode, _, _} = hackney:request(get, URL,
-                                                 Headers, Payload,
-                                                 Options),      
-        Result = case StatusCode of
-                200 -> store_in_ets(XAccessToken);
-                401 -> false;
-                _ -> false
-        end,
+	{ok, BaseURL} = application:get_env(auctioneer, authy_url),
+	URL = [BaseURL, <<"10">>],
+	Headers = [{<<"Content-Type">>, <<"application/json">>},
+			   {<<"x-access-token">>, XAccessToken}],
+	Payload = <<>>,
+	Options = [],
+	{ok, StatusCode, _, _} = hackney:request(get, URL,
+											 Headers, Payload,
+											 Options),      
+	Result = case StatusCode of
+			200 -> store_in_ets(XAccessToken);
+			401 -> false;
+			_ -> false
+	end,
 	
 	Result.	
 
 %------------------------------------------------------------------------------
 
 token_in_ets(XAccessToken) ->
-        erlang:display("---- the_bouncer:token_in_ets/1 ----"),
+    erlang:display("---- the_bouncer:token_in_ets/1 ----"),
 	case ets:whereis(jwttable) of
 		undefined -> false;
 		_ -> proper_lookup(XAccessToken)
@@ -63,11 +63,11 @@ token_in_ets(XAccessToken) ->
 
 proper_lookup(XAccessToken) -> 
 	erlang:display("---- the_bouncer:proper_lookup/1 ----"),
-        List = ets:lookup(jwttable, XAccessToken),
-        case erlang:length(List) of
-                0 -> false;
-                _ -> true
-        end.
+    List = ets:lookup(jwttable, XAccessToken),
+    case erlang:length(List) of
+        0 -> false;
+        _ -> true
+    end.
 
 %------------------------------------------------------------------------------
 
@@ -101,13 +101,13 @@ good_boye(XAccessToken, Level, Req, Opts) ->
 	% get auth url from app config
 	{ok, BaseURL} = application:get_env(auctioneer, authy_url),
 	URL = [BaseURL, Level],
-        Headers = [{<<"Content-Type">>, <<"application/json">>},
-                   {<<"x-access-token">>, XAccessToken}],
-        Payload = <<>>,
-        Options = [],
-        {ok, StatusCode, _, _} = hackney:request(get, URL,
-                                                 Headers, Payload,
-                                                 Options),	
+	Headers = [{<<"Content-Type">>, <<"application/json">>},
+			   {<<"x-access-token">>, XAccessToken}],
+	Payload = <<>>,
+	Options = [],
+	{ok, StatusCode, _, _} = hackney:request(get, URL,
+											 Headers, Payload,
+											 Options),	
 	case StatusCode of
 		200 -> ok;
 		401 -> bad_dog(Req, Opts);
@@ -120,8 +120,8 @@ bad_dog(Req, Opts) ->
 	erlang:display("---- the_bouncer:bad_dog/2 ----"),
 	Message = <<"{\"message\": \"Yer name's not down\"}">>,
 	cowboy_req:reply(401,
-                        #{<<"content-type">> => <<"application/json">>}, 
-			Message, Req),
-        {stop, Req, Opts}.	
+                     #{<<"content-type">> => <<"application/json">>}, 
+					 Message, Req),
+    {stop, Req, Opts}.	
 	
 %------------------------------------------------------------------------------

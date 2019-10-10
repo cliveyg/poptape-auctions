@@ -1,18 +1,18 @@
 -module(misc).
 
 -export([find_value/2,
-	 get_milly_time/0,
-	 binary_join/2,
-	 valid_auction_id/1]).
+	 	 get_milly_time/0,
+	 	 binary_join/2,
+	 	 valid_auction_item/3]).
 
 %------------------------------------------------------------------------------
 
 find_value(Key, List) ->
 
-        case lists:keyfind(Key, 1, List) of
-                {Key, Result} -> Result;
-                false -> false
-        end.
+	case lists:keyfind(Key, 1, List) of
+		{Key, Result} -> Result;
+		false -> false
+	end.
 
 %------------------------------------------------------------------------------
 
@@ -24,24 +24,25 @@ get_milly_time() ->
 
 %------------------------------------------------------------------------------
 
-valid_auction_id(AuctionID) ->
-        erlang:display("---- misc:valid_auction_id/2 ----"),
+valid_auction_item(AuctionID, LotID, XAccessToken) ->
+    erlang:display("---- misc:valid_auction_id/2 ----"),
 	erlang:display(AuctionID),
+	erlang:display(LotID),
+    erlang:display(XAccessToken),
 
-	% checking auction id needs no auth (so no extra http call from 
-	% auctionhouse to authy. if it needs auth in the future then we
-	% scrap the direct call to authy as the call to auctionhouse 
-	% would do that call for us
+    % the auctionhouse microservice returns either 200 or 401
+    % part of it's checks are that the auction creator cannot bid on their
+    % own auction
 	{ok, AuctionURL} = application:get_env(auctioneer, auctionhouse_url),
-        %URL = [AuctionURL, AuctionID],
-	%TODO: maybe add x-access-token so we know auction is valid for user
-	% to create an auctioneer for?
-        Headers = [{<<"Content-Type">>, <<"application/json">>}],
-        Payload = <<>>,
-        Options = [],
-        {ok, StatusCode, _, _} = hackney:request(get, AuctionURL,
-                                                 Headers, Payload,
-        			 	         Options),
+    URL = [AuctionURL, AuctionID, <<"/">>, LotID],
+    erlang:display(URL),
+	Headers = [{<<"Content-Type">>, <<"application/json">>},
+               {<<"x-access-token">>, XAccessToken}],
+	Payload = <<>>,
+	Options = [],
+	{ok, StatusCode, _, _} = hackney:request(get, URL,
+											 Headers, Payload,
+							 				 Options),
 	StatusCode.
 
 %------------------------------------------------------------------------------

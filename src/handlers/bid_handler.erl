@@ -1,10 +1,10 @@
 -module(bid_handler).
 
 -export([init/2,
-  	 websocket_init/1,
-	 websocket_handle/2,
-	 websocket_info/2,
-	 terminate/3]).
+		 websocket_init/1,
+		 websocket_handle/2,
+		 websocket_info/2,
+		 terminate/3]).
 
 -define(SOCKET_INTERVAL, 50000).
 
@@ -16,9 +16,9 @@ init(Req, _) ->
 	% we capture the route info here as Req doesn't get 
 	% passed on to the websocket methods
 	AuctionID = cowboy_req:binding(auction_id, Req),
-	ItemID = cowboy_req:binding(item_id, Req),
-	Opts = [{auction_id, AuctionID}, {item_id, ItemID}],
-    	{cowboy_websocket, Req, Opts, #{idle_timeout => 3000000}}.
+	LotID = cowboy_req:binding(lot_id, Req),
+	Opts = [{auction_id, AuctionID}, {lot_id, LotID}],
+    {cowboy_websocket, Req, Opts, #{idle_timeout => 3000000}}.
 
 %------------------------------------------------------------------------------
 
@@ -27,7 +27,7 @@ websocket_init(Opts) ->
 	% this timer is an attempt to keep our websocket connection open
 	% returns to websocket_info method
 	erlang:start_timer(?SOCKET_INTERVAL, self(), {ping, 1}),
-    	{reply, {text, <<"{ \"message\": \"Send nudes or JWT, your choice\" }">>}, Opts}.
+    {reply, {text, <<"{ \"message\": \"Send nudes or JWT, your choice\" }">>}, Opts}.
 
 %------------------------------------------------------------------------------
 
@@ -35,16 +35,16 @@ websocket_handle({text, Json}, Opts) ->
 	erlang:display("------ bid_handler:websocket_handle/2 [1] ------"),
 	JsonDecoded = jsx:decode(Json),
 	%TODO: Sanitize input!
-        Username = misc:find_value(<<"username">>, JsonDecoded),
-        BidAmount = misc:find_value(<<"bid_amount">>, JsonDecoded),
-        XAccessToken = misc:find_value(<<"x-access-token">>, JsonDecoded),
+    Username = misc:find_value(<<"username">>, JsonDecoded),
+    BidAmount = misc:find_value(<<"bid_amount">>, JsonDecoded),
+    XAccessToken = misc:find_value(<<"x-access-token">>, JsonDecoded),
 	Created = misc:find_value(<<"created">>, JsonDecoded),
 	InputPropList = [{username, Username},
 			 {bid_amount, BidAmount},
 			 {x_access_token, XAccessToken},
 			 {created, Created},
 			 {auction_id, proplists:get_value(auction_id, Opts)},
-			 {item_id, proplists:get_value(item_id, Opts)}],
+			 {lot_id, proplists:get_value(lot_id, Opts)}],
 
 	case the_bouncer:checks_socket_guestlist(XAccessToken) of
 		true -> accept_connection(InputPropList);
@@ -52,8 +52,8 @@ websocket_handle({text, Json}, Opts) ->
 	end;
 websocket_handle(_Frame, Opts) ->
 	% this handles anything that's not text
-        %erlang:display("------ bid_handler:websocket_handle/2 [3] ------"),
-        {ok, Opts}.
+    %erlang:display("------ bid_handler:websocket_handle/2 [3] ------"),
+    {ok, Opts}.
 
 %------------------------------------------------------------------------------
 
@@ -61,16 +61,16 @@ accept_connection(UserData) ->
 	erlang:display("------ bid_handler:accept_connection/1 ------"),
 	%TODO: maybe need to check if auction/item is valid and live
 	Username = proplists:get_value(username, UserData),
-	ItemID = proplists:get_value(item_id, UserData),
+	LotID = proplists:get_value(lot_id, UserData),
 
-	{Channel, Connection} = the_postman:create_bidder_queue(Username, ItemID),
+	{Channel, Connection} = the_postman:create_bidder_queue(Username, LotID),
 
 	% seperate process to listen for rabbit messages - returns 
 	% any found to websocket_info method
-	Queue = misc:binary_join([ItemID, Username], <<"_">>),
+	Queue = misc:binary_join([LotID, Username], <<"_">>),
 	spawn_link(the_listener, main, [Channel, Queue, self()]),
 
-	{Res, DBData} = gen_server:call(db_server, {get_rec, ItemID}),
+	{Res, DBData} = gen_server:call(db_server, {get_rec, LotID}),
 
 	case Res of
 		ok -> erlang:display("you got data!");
@@ -94,7 +94,7 @@ accept_connection(UserData) ->
 	end,
 
         OutData = [{username, Username},
-                   {item_id, ItemID},
+                   {lot_id, LotID},
                    {unixtime, UnixTime},
                    {bid, LatestBid},
                    {status, Status},
@@ -103,14 +103,14 @@ accept_connection(UserData) ->
                    {endtime, Endtime}],
 
 	case CurrentWinner == proplists:get_value(username, UserData) of
-		true -> gen_server:call(db_server, {create_rec, ItemID, OutData});
+		true -> gen_server:call(db_server, {create_rec, LotID, OutData});
 		false -> ok
 	end,
 
 	JsonPayload = jsx:encode(OutData),
 
 	% publish to the queue to return data to user via websocket_info
-	the_postman:publish_message(Channel, ItemID, JsonPayload),
+	the_postman:publish_message(Channel, LotID, JsonPayload),
 
 	% pass these around so we can shut down 
 	% the rabbitmq connection gracefully
