@@ -41,12 +41,12 @@ init([]) ->
 % the bit's that do the work
 %------------------------------------------------------------------------------
 
-% get rec based on ItemID
+% get rec based on LotID
 handle_call({get_rec, Key}, _From, Opts) ->
 	erlang:display("::::: handle_call:get_rec :::::"),
     	Records = ets:lookup(records_db, Key),
     	Reply = case Records of
-        	[{_ItemID, Data}] -> {ok, Data};
+        	[{_LotID, Data}] -> {ok, Data};
         	[] -> {error, not_found};
         	_ -> {error, too_many_records}
     	end,
@@ -55,46 +55,50 @@ handle_call({get_rec, Key}, _From, Opts) ->
 % create the db
 handle_call({create_db}, _From, Opts) ->
 	erlang:display("::::: handle_call:create_db :::::"),
+
 	% check table exists
 	case ets:info(records_db) of
-		undefined -> ets:new(records_db, [set, public, named_table]),
-			     {reply, 201, Opts};
+		undefined -> ets:new(records_db, [public, named_table]),
+			         {reply, 201, Opts};
 		_ -> {reply, 409, Opts}
 	end;
 
 % get all recs
 handle_call({get_all_recs, []}, _From, Opts) ->
 	erlang:display("::::: handle_call:get_all_recs :::::"),
+
    	F = fun (Item, Acc) -> Acc1 = [Item | Acc], Acc1 end,
     	Items = ets:foldl(F, [], records_db),
     	Reply = {ok, Items},
     	{reply, Reply, Opts};
 
 % delete a record
-handle_call({delete_rec, ItemID}, _From, Opts) ->
+handle_call({delete_rec, LotID}, _From, Opts) ->
 	erlang:display("::::: handle_call:delete_rec :::::"),
-    	Reply = case ets:lookup(records_db, ItemID) of
+
+    	Reply = case ets:lookup(records_db, LotID) of
         	[] -> {error, not_found};
-        	_ -> ets:delete(records_db, ItemID)
+        	_ -> ets:delete(records_db, LotID)
     	end,
     	{reply, Reply, Opts};
 
 % create a record
-handle_call({create_rec, ItemID, Content}, _From, Opts) ->
+handle_call({create_rec, LotID, Content}, _From, Opts) ->
 	erlang:display("::::: handle_call:create_rec :::::"),
-	case ets:insert(records_db, {ItemID, Content}) of
+
+	case ets:insert(records_db, {LotID, Content}) of
 		true -> {reply, 201, Opts};
-		_ -> {reply, 422, Opts}
+		false -> {reply, 422, Opts}
 	end;
 
 % update a record - although create with the same key has the same effect
-handle_call({update_rec, ItemID, NewContent}, _From, Opts) ->
+handle_call({update_rec, LotID, NewContent}, _From, Opts) ->
 	erlang:display("::::: handle_call:update_rec :::::"),
-    	DBResponse = ets:lookup(records_db, ItemID),
+    	DBResponse = ets:lookup(records_db, LotID),
     	Reply = case DBResponse of
-        	[_] -> ok = ets:insert(records_db, {ItemID, NewContent}),
+        	[_] -> ok = ets:insert(records_db, {LotID, NewContent}),
             	       %ok = ets:sync(records_db),
-            	       Response = io_lib:format("/get/~s", [ItemID]),
+            	       Response = io_lib:format("/get/~s", [LotID]),
             	       Response1 = list_to_binary(Response),
             	       {ok, Response1};
         	[] -> {error, not_found}

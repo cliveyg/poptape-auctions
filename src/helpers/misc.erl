@@ -26,15 +26,12 @@ get_milly_time() ->
 
 valid_auction_item(AuctionID, LotID, XAccessToken) ->
     erlang:display("---- misc:valid_auction_id/2 ----"),
-	erlang:display(AuctionID),
-	erlang:display(LotID),
-    erlang:display(XAccessToken),
 
     % the auctionhouse microservice returns either 200 or 401
     % part of it's checks are that the auction creator cannot bid on their
     % own auction
 	{ok, AuctionURL} = application:get_env(auctioneer, auctionhouse_url),
-    URL = [AuctionURL, AuctionID, <<"/">>, LotID],
+    URL = [AuctionURL, AuctionID, <<"/">>, LotID, <<"/">>],
     erlang:display(URL),
 	Headers = [{<<"Content-Type">>, <<"application/json">>},
                {<<"x-access-token">>, XAccessToken}],
@@ -43,6 +40,8 @@ valid_auction_item(AuctionID, LotID, XAccessToken) ->
 	{ok, StatusCode, _, _} = hackney:request(get, URL,
 											 Headers, Payload,
 							 				 Options),
+    erlang:display("----------:::::::----------"),
+    erlang:display(StatusCode),
 	StatusCode.
 
 %------------------------------------------------------------------------------

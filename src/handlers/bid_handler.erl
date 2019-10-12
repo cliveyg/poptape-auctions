@@ -59,7 +59,7 @@ websocket_handle(_Frame, Opts) ->
 
 accept_connection(UserData) ->
 	erlang:display("------ bid_handler:accept_connection/1 ------"),
-	%TODO: maybe need to check if auction/item is valid and live
+	%TODO: maybe need to check if auction/lot is valid and live
 	Username = proplists:get_value(username, UserData),
 	LotID = proplists:get_value(lot_id, UserData),
 

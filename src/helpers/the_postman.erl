@@ -16,7 +16,8 @@ create_exchange_and_queues(Username, LotID) ->
     erlang:display("---- the_postman:create_exchange_and_queue/2 ----"),
 	erlang:display(LotID),
 
-	{Channel, Connection} = open_all(),
+	%{Channel, Connection} = open_all(),
+    {Channel, _} = open_all(),
 
 	ExchangeDeclare = #'exchange.declare'{exchange = LotID,
 		     			      			  type = <<"fanout">>},
@@ -42,7 +43,11 @@ create_exchange_and_queues(Username, LotID) ->
                              routing_key = <<"">>},
     #'queue.bind_ok'{} = amqp_channel:call(Channel, Binding2),
 
-	{201, Channel, Connection}.
+    % create a third queue for the auctionhouse microservice to consume
+    % this ensures that the auction/lot data is up to date
+
+	%{201, Channel, Connection}.
+    {201, Channel}.
 
 %------------------------------------------------------------------------------
 

@@ -12,14 +12,14 @@ The auction owner sends an http post to an endpoint of `/auction/<auction_id>`
 The post has the usual x-access-token JWT header as well as the following json
 fields:
 ```
-item_id
+lot_id
 username
 start_price
 ```
 The microservice then creates an exchange on RabbitMQ of type 'fanout' with an id 
-of item\_id. This type of exchange allows a pub/sub model to be used. The service 
-also creates two queues; one with a name matching the item\_id and one matching 
-the username. The item\_id queue is intended for an audit microservice to use and 
+of lot\_id. This type of exchange allows a pub/sub model to be used. The service 
+also creates two queues; one with a name matching the lot\_id and one matching 
+the username. The lot\_id queue is intended for an audit microservice to use and 
 is saved to disk. The other queue is intended for use by the auction owner.
 
 ##### A Bidder:
@@ -32,7 +32,7 @@ the x-access-token field with the JWT as the content of this field.
 If the websocket connection is lost then the ets table entry is deleted and any 
 subsequent connections need to be reverified against the authenication service.
 
-The bidder comes in on an URL endpoint of `/auction/<auction_id>/<item_id>` and 
+The bidder comes in on an URL endpoint of `/auction/<auction_id>/<lot_id>` and 
 sends the data listed below in a Json format (as well as the x-access-token JWT) in the 
 websocket body:
 ```
@@ -40,9 +40,9 @@ username
 bid
 ```
 The microservice creates a queue with the name of username (I think I need to change 
-this to make each queue unique as a user can bid on more than one item at a time - not
+this to make each queue unique as a user can bid on more than one lot at a time - not
  sure if RabbitMQ allows queues with non-unique names). 
-The queue is bound to the exchange with the name that corresponds to the item\_id. 
+The queue is bound to the exchange with the name that corresponds to the lot\_id. 
 Any subsequent websocket data sent is published to the exchange and all subscribers 
 receive the messages to their own websocket.
 
@@ -72,7 +72,13 @@ TBD
 * Very early pre-alpha. Works(ish). No data sanitization or much other checking.
 
 ### TODO:
-* ~~Make bidder queue name unique on username and item\_id.~~
+* Need to add a check that create has been called before or not. Currently store a value in
+  ets to check for this but maybe better in dets. If stored in dets we will need to delete
+  from there after auction end to avoid 2Gb limit on dets files.
+* ~~Make bidder queue name unique on username and lot\_id.~~
+* Add extra ets data for storing latest bid data (?)
+* Add extra message queue so auctionhouse service can stay in sync with auctioneer. Make this 
+  queue save to disk in case of server fail (?)
 * Sanitize the input data.
 * Only currently designed for a traditional English style auction.
 * Need to think about pulling messages into auctionhouse microservice.
