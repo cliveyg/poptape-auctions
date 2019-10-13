@@ -14,9 +14,7 @@
 
 create_exchange_and_queues(Username, LotID) ->
     erlang:display("---- the_postman:create_exchange_and_queue/2 ----"),
-	erlang:display(LotID),
 
-	%{Channel, Connection} = open_all(),
     {Channel, _} = open_all(),
 
 	ExchangeDeclare = #'exchange.declare'{exchange = LotID,
@@ -25,7 +23,7 @@ create_exchange_and_queues(Username, LotID) ->
 
 	% create queue for user who created the auction instance
 	% queues name need to be unqiue and a user could have more than one queue
-	% so queue name of item and username should be unqiue
+	% so queue name of lot and username should be unqiue
 	QueueName = misc:binary_join([LotID, Username], <<"_">>),
 	#'queue.declare_ok'{} = amqp_channel:call(Channel, #'queue.declare'{queue = QueueName}),
 	Binding1 = #'queue.bind'{queue       = QueueName,
@@ -45,8 +43,14 @@ create_exchange_and_queues(Username, LotID) ->
 
     % create a third queue for the auctionhouse microservice to consume
     % this ensures that the auction/lot data is up to date
+    %AuctionHouseQueue = misc:concat([LotID,<<"_auctionhouse">>]),
+    AuctionHouseQueue = misc:binary_join([LotID, <<"auctionhouse">>], <<"_">>),
+    #'queue.declare_ok'{} = amqp_channel:call(Channel, #'queue.declare'{queue = AuctionHouseQueue}),
+    Binding3 = #'queue.bind'{queue       = AuctionHouseQueue,
+                             exchange    = LotID,
+                             routing_key = <<"">>},
+    #'queue.bind_ok'{} = amqp_channel:call(Channel, Binding3),
 
-	%{201, Channel, Connection}.
     {201, Channel}.
 
 %------------------------------------------------------------------------------
@@ -75,9 +79,9 @@ publish_message(Channel, Exchange, Payload) ->
 
 %------------------------------------------------------------------------------
 
-publish_direct_to_queue(Channel, LotID, Payload) ->
+publish_direct_to_queue(Channel, QueueName, Payload) ->
     erlang:display("---- the_postman:publish_direct_to_queue/3 ----"),
-    Publish = #'basic.publish'{exchange = <<"">>, routing_key = LotID},
+    Publish = #'basic.publish'{exchange = <<"">>, routing_key = QueueName},
     amqp_channel:cast(Channel, Publish, #amqp_msg{payload = Payload}),
     ok.	
 
@@ -99,7 +103,7 @@ open_all() ->
 	User = misc:find_value(user, RabbitConfig),
 	Pass = misc:find_value(pass, RabbitConfig),
 	VHost = misc:find_value(virtual_host, RabbitConfig),
-	erlang:display(VHost),
+	%erlang:display(VHost),
 
     {ok, Connection} =
          amqp_connection:start(#amqp_params_network{host = Host,

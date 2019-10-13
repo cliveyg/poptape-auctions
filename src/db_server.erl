@@ -63,6 +63,16 @@ handle_call({create_db}, _From, Opts) ->
 		_ -> {reply, 409, Opts}
 	end;
 
+% check the db exists
+handle_call({db_exists}, _From, Opts) ->
+    erlang:display("::::: handle_call:db_exists :::::"),
+
+    % check table exists
+    case ets:info(records_db) of
+        undefined -> {reply, 404, Opts};
+        _ -> {reply, 200, Opts}
+    end;
+
 % get all recs
 handle_call({get_all_recs, []}, _From, Opts) ->
 	erlang:display("::::: handle_call:get_all_recs :::::"),

@@ -1,7 +1,7 @@
 -module(the_bouncer).
 
 -export([checks_guestlist/2,
-     checks_socket_guestlist/1]).
+         checks_socket_guestlist/2]).
 
 %------------------------------------------------------------------------------
 
@@ -21,13 +21,20 @@ checks_guestlist(Req, Level) ->
 % the jwt exists in ets. this saves on repeated calls to authy. should be
 % faster.
 
-checks_socket_guestlist(XAccessToken) ->
+checks_socket_guestlist(XAccessToken, LotID) ->
     erlang:display("---- the_bouncer:checks_socket_guestlist/1 ----"),
 
-  case token_in_ets(XAccessToken, jwttable) of
-    true -> true;
-    false -> check_authy(XAccessToken)
-  end.
+    TokenGood = case token_in_ets(XAccessToken, jwttable) of
+        true -> true;
+        false -> check_authy(XAccessToken)
+    end,
+
+    RecordExists = misc:check_record_exists(LotID),
+
+    case {TokenGood, RecordExists} of
+        {true, true} -> true;
+        {_, _} -> false
+    end.
   
 %------------------------------------------------------------------------------
 % websocket auth call to authy

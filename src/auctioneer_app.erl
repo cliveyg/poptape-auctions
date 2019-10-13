@@ -9,7 +9,7 @@ start(_Type, _Args) ->
         Dispatch = cowboy_router:compile([
            {'_', [{"/auction/bid/:auction_id/:lot_id", bid_handler, []}, % websocket
 		   {"/auction/status", status_handler, []}, % http
-           {"/auction/:auction_id/:lot_id", create_handler, []}]} % http
+           {"/auction/:auction_id/:lot_id", lot_handler, []}]} % http
         ]),
         {ok, _} = cowboy:start_clear(my_http_listener,
             [{ip,{0,0,0,0}},{port, 9000}],
