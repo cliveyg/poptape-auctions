@@ -26,7 +26,7 @@
 %------------------------------------------------------------------------------
 
 start_link() ->
-	erlang:display("start_link of db_server"),
+	%erlang:display("start_link of db_server"),
     	gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 %------------------------------------------------------------------------------
@@ -34,7 +34,7 @@ start_link() ->
 %------------------------------------------------------------------------------
 
 init([]) ->
-	erlang:display("::::: db_server init() ::::::"),
+	%erlang:display("::::: db_server init() ::::::"),
     	{ok, #state{}}.
 
 %------------------------------------------------------------------------------
@@ -43,7 +43,7 @@ init([]) ->
 
 % get rec based on LotID
 handle_call({get_rec, Key}, _From, Opts) ->
-	erlang:display("::::: handle_call:get_rec :::::"),
+	%erlang:display("::::: handle_call:get_rec :::::"),
     	Records = ets:lookup(records_db, Key),
     	Reply = case Records of
         	[{_LotID, Data}] -> {ok, Data};
@@ -54,7 +54,7 @@ handle_call({get_rec, Key}, _From, Opts) ->
 
 % create the db
 handle_call({create_db}, _From, Opts) ->
-	erlang:display("::::: handle_call:create_db :::::"),
+	%erlang:display("::::: handle_call:create_db :::::"),
 
 	% check table exists
 	case ets:info(records_db) of
@@ -65,7 +65,7 @@ handle_call({create_db}, _From, Opts) ->
 
 % check the db exists
 handle_call({db_exists}, _From, Opts) ->
-    erlang:display("::::: handle_call:db_exists :::::"),
+    %erlang:display("::::: handle_call:db_exists :::::"),
 
     % check table exists
     case ets:info(records_db) of
@@ -75,7 +75,7 @@ handle_call({db_exists}, _From, Opts) ->
 
 % get all recs
 handle_call({get_all_recs, []}, _From, Opts) ->
-	erlang:display("::::: handle_call:get_all_recs :::::"),
+	%erlang:display("::::: handle_call:get_all_recs :::::"),
 
    	F = fun (Item, Acc) -> Acc1 = [Item | Acc], Acc1 end,
     	Items = ets:foldl(F, [], records_db),
@@ -84,7 +84,7 @@ handle_call({get_all_recs, []}, _From, Opts) ->
 
 % delete a record
 handle_call({delete_rec, LotID}, _From, Opts) ->
-	erlang:display("::::: handle_call:delete_rec :::::"),
+	%erlang:display("::::: handle_call:delete_rec :::::"),
 
     	Reply = case ets:lookup(records_db, LotID) of
         	[] -> {error, not_found};
@@ -94,7 +94,7 @@ handle_call({delete_rec, LotID}, _From, Opts) ->
 
 % create a record
 handle_call({create_rec, LotID, Content}, _From, Opts) ->
-	erlang:display("::::: handle_call:create_rec :::::"),
+	%erlang:display("::::: handle_call:create_rec :::::"),
 
 	case ets:insert(records_db, {LotID, Content}) of
 		true -> {reply, 201, Opts};
@@ -103,7 +103,7 @@ handle_call({create_rec, LotID, Content}, _From, Opts) ->
 
 % update a record - although create with the same key has the same effect
 handle_call({update_rec, LotID, NewContent}, _From, Opts) ->
-	erlang:display("::::: handle_call:update_rec :::::"),
+	%erlang:display("::::: handle_call:update_rec :::::"),
     	DBResponse = ets:lookup(records_db, LotID),
     	Reply = case DBResponse of
         	[_] -> ok = ets:insert(records_db, {LotID, NewContent}),
@@ -118,19 +118,19 @@ handle_call({update_rec, LotID, NewContent}, _From, Opts) ->
 %------------------------------------------------------------------------------
 
 handle_cast(_Msg, Opts) ->
-	erlang:display("::::: handle_cast :::::"),
+	%erlang:display("::::: handle_cast :::::"),
         {noreply, Opts}.
 
 %------------------------------------------------------------------------------
 
 handle_info(_Info, Opts) ->
-	erlang:display("::::: handle_info :::::"),
+	%erlang:display("::::: handle_info :::::"),
         {noreply, Opts}.
 
 %------------------------------------------------------------------------------
 
 terminate(_Reason, _Opts) ->
-	erlang:display("::::: terminate :::::"),
+	%erlang:display("::::: terminate :::::"),
     	%ets:close(state_db),
     	%ets:close(records_db),
     	ok.
@@ -138,6 +138,6 @@ terminate(_Reason, _Opts) ->
 %------------------------------------------------------------------------------
 
 code_change(_OldVsn, Opts, _Extra) ->
-	erlang:display("::::: code_change :::::"),
+	%erlang:display("::::: code_change :::::"),
         {ok, Opts}.
 

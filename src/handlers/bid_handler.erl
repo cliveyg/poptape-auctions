@@ -11,7 +11,7 @@
 %------------------------------------------------------------------------------
 
 init(Req, _) ->
-	erlang:display("------ bid_handler:init/2 ------"),
+	%erlang:display("------ bid_handler:init/2 ------"),
 	%TODO: Sanitize input!
 	% we capture the route info here as Req doesn't get 
 	% passed on to the websocket methods
@@ -23,7 +23,7 @@ init(Req, _) ->
 %------------------------------------------------------------------------------
 
 websocket_init(Opts) ->
-	erlang:display("------ bid_handler:websocket_init/2 ------"),	
+	%erlang:display("------ bid_handler:websocket_init/2 ------"),	
 	% this timer is an attempt to keep our websocket connection open
 	% returns to websocket_info method
 	erlang:start_timer(?SOCKET_INTERVAL, self(), {ping, 1}),
@@ -32,7 +32,7 @@ websocket_init(Opts) ->
 %------------------------------------------------------------------------------
 
 websocket_handle({text, Json}, Opts) ->
-	erlang:display("------ bid_handler:websocket_handle/2 [1] ------"),
+	%erlang:display("------ bid_handler:websocket_handle/2 [1] ------"),
 	JsonDecoded = jsx:decode(Json),
 	%TODO: Sanitize input!
     Username = misc:find_value(<<"username">>, JsonDecoded),
@@ -62,7 +62,7 @@ websocket_handle(_Frame, Opts) ->
 %------------------------------------------------------------------------------
 
 accept_connection(UserData) ->
-	erlang:display("------ bid_handler:accept_connection/1 ------"),
+	%erlang:display("------ bid_handler:accept_connection/1 ------"),
 	Username = proplists:get_value(username, UserData),
 	LotID = proplists:get_value(lot_id, UserData),
 
@@ -76,22 +76,23 @@ accept_connection(UserData) ->
     % we already know we have data in db at this point so don't worry about
     % checking for if record exists
 	{_, DBData} = gen_server:call(db_server, {get_rec, LotID}),
+    %erlang:display("+++++++++++++++++++++++++++++++++++++++++++"),
 	{_, YourBid} = misc:binary_to_number(
                        proplists:get_value(bid_amount, UserData)
                    ),
     EndTime = proplists:get_value(end_time, DBData),
 	UnixTime = misc:get_milly_time(),
-    StoredBid = proplists:get_value(current_price, DBData),
+    StoredBid = proplists:get_value(bid_amount, DBData),
     AuctionType = proplists:get_value(auction_type, DBData),
     MinChange = proplists:get_value(min_change, DBData),
 
 	{LotStatus, BidStatus, Message, LatestBid, CurrentWinner} = 
 	case check_bids(YourBid, StoredBid, AuctionType, MinChange, UnixTime, EndTime)  of
-		{true, true} -> {<<"open">>, 201, <<"Currently winning bid">>, 
+		{true, true} -> {<<"open">>, <<"winning">>, <<"Currently winning bid">>, 
 			             YourBid, proplists:get_value(username, UserData)};
-		{false, true} -> {<<"open">>, 400, <<"Bid failed">>, 	
+		{false, true} -> {<<"open">>, <<"failed">>, <<"Bid failed">>, 	
 			              StoredBid, proplists:get_value(username, DBData)};
-		{_, false} -> {<<"closed">>, 404, <<"Bidding finished">>, 
+		{_, false} -> {<<"closed">>, <<"invalid">>, <<"Bidding finished">>, 
 			           StoredBid, proplists:get_value(username, DBData)}
 	end,
 
@@ -110,43 +111,45 @@ accept_connection(UserData) ->
                {lot_id, LotID},
                {bid_id, BidID},
                {unixtime, UnixTime},
-               {bid, YourBid},
+               {bid_amount, YourBid},
                {lot_status, LotStatus},
                {bid_status, BidStatus},
                {message, Message},
                {reserve_message, ResMess},
+               {auction_type, proplists:get_value(auction_type, DBData)},
                {auction_id, proplists:get_value(auction_id, DBData)},
+               {start_time, proplists:get_value(start_time, DBData)},
                {end_time, EndTime}],
 
-	case CurrentWinner == proplists:get_value(username, UserData) of
-		true -> PublicID = misc:get_public_id(proplists:get_value(x_access_token, UserData)),
-                UpdatedDBData = [
-                    {current_winner, CurrentWinner},
-                    {current_price, LatestBid},
-                    {bid_id, BidID},
-                    {lot_id, LotID},
-                    {auction_type, proplists:get_value(auction_type, DBData)},
-                    {min_change, proplists:get_value(min_change, DBData)},
-                    {reserve_price, proplists:get_value(reserve_price, DBData)},
-                    {auction_id, proplists:get_value(auction_id, DBData)},
-                    {exchange, proplists:get_value(exchange, DBData)},
-                    {reserve_message, ResMess},
-                    {public_id, PublicID},
-                    {start_time, proplists:get_value(start_time, DBData)},
-                    {end_time, proplists:get_value(end_time, DBData)},
-                    {unix_time, proplists:get_value(UnixTime, DBData)},
-                    {lot_status, LotStatus},
-                    {bid_status, BidStatus},
-                    {message, Message}
-                ],
-                % create record just overwrites a record with the same key if it exists
-                gen_server:call(db_server, {create_rec, LotID, UpdatedDBData});
-		false -> ok
-	end,
+    PublicID = misc:get_public_id(proplists:get_value(x_access_token, UserData)),
+    UpdatedDBData = [
+        {record_type, <<"FULL AUDIT">>},
+        {current_winner, CurrentWinner},
+        {current_winning_bid, LatestBid},
+        {bid_amount, YourBid},
+        {bid_id, BidID},
+        {lot_id, LotID},
+        {auction_type, proplists:get_value(auction_type, DBData)},
+        {min_change, proplists:get_value(min_change, DBData)},
+        {reserve_price, proplists:get_value(reserve_price, DBData)},
+        {auction_id, proplists:get_value(auction_id, DBData)},
+        {exchange, proplists:get_value(exchange, DBData)},
+        {reserve_message, ResMess},
+        {public_id, PublicID},
+        {start_time, proplists:get_value(start_time, DBData)},
+        {end_time, proplists:get_value(end_time, DBData)},
+        {unix_time, proplists:get_value(UnixTime, DBData)},
+        {lot_status, LotStatus},
+        {bid_status, BidStatus},
+        {message, Message}
+    ],
+    % publish full record to db and direct to audit queue
+    AuditJson = jsx:encode(UpdatedDBData),
+    the_postman:publish_direct_to_queue(Channel, LotID, AuditJson),
+    gen_server:call(db_server, {create_rec, LotID, UpdatedDBData}),
 
+    % publish to the exchange to return data to user via websocket_info
 	JsonPayload = jsx:encode(OutData),
-
-	% publish to the queue to return data to user via websocket_info
 	the_postman:publish_message(Channel, LotID, JsonPayload),
 
 	% pass these around so we can shut down 
@@ -158,7 +161,7 @@ accept_connection(UserData) ->
 
 check_bids(YourBid, StoredBid, AuctionType, MinChange, UnixTime, EndTime) ->
 
-    erlang:display("----------- check_bids ------------"),
+    %erlang:display("----------- check_bids ------------"),
     %erlang:display(YourBid),
     %erlang:display(StoredBid),
     %erlang:display(AuctionType),
@@ -176,7 +179,7 @@ check_bids(YourBid, StoredBid, AuctionType, MinChange, UnixTime, EndTime) ->
 %------------------------------------------------------------------------------
 
 check_inputs(InputPropList) ->
-    erlang:display("----------- check_inputs ------------"),
+    %erlang:display("----------- check_inputs ------------"),
     OkUsername = length(binary:bin_to_list(
                         proplists:get_value(username, InputPropList))) < 51,
     OkAccessToken = length(binary:bin_to_list(
@@ -191,14 +194,14 @@ check_inputs(InputPropList) ->
 %------------------------------------------------------------------------------
 
 reject_connection(Opts) ->
-	erlang:display("------ bid_handler:reject_connection/1 ------"),
+	%erlang:display("------ bid_handler:reject_connection/1 ------"),
 	{stop, Opts}.
 
 %------------------------------------------------------------------------------
 % websocket_info like handler_info in a genserver captures all callback outputs
 
 websocket_info(_Info, Opts) ->
-	erlang:display("------ bid_handler:websocket_info/2 ------"),
+	%erlang:display("------ bid_handler:websocket_info/2 ------"),
 
 	% ping checker because websockets shuts down too soon by default
 	case erlang:element(1, _Info) of
@@ -212,14 +215,14 @@ websocket_info(_Info, Opts) ->
 %------------------------------------------------------------------------------
 
 show_me_the_money(Dropping, Opts) ->
-	erlang:display("------ bid_handler:show_me_the_money/2 ------"),
+	%erlang:display("------ bid_handler:show_me_the_money/2 ------"),
 	Mess = erlang:element(2,Dropping),
 	{reply, {text, Mess}, Opts}.
 
 %------------------------------------------------------------------------------
 
 cheery_bye(_, Opts) ->
-	erlang:display("------ bid_handler:cheery_bye/2 ------"),
+	%erlang:display("------ bid_handler:cheery_bye/2 ------"),
         the_postman:close_all(proplists:get_value(channel, Opts),
                               proplists:get_value(connection, Opts)),
 	Mess = <<"{ \"message\": \"right, that's it i'm done\" }">>,
@@ -239,7 +242,7 @@ fetch_ping(CountList, Opts) ->
 count_ping(Count, Opts) ->
         NewCount = Count + 1,
         case NewCount of
-                10 -> {stop, Opts};
+                20 -> {stop, Opts};
                 _ -> send_ping(NewCount, Opts)
         end.	
 
@@ -252,7 +255,7 @@ send_ping(Count, Opts) ->
 %------------------------------------------------------------------------------
 
 terminate(_, _, Opts) ->
-	erlang:display("------ bid_handler:terminate/3 ------"),
+	%erlang:display("------ bid_handler:terminate/3 ------"),
 
     case misc:find_value(terminated_early, Opts) of
         true -> ok;

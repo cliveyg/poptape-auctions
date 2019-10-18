@@ -13,7 +13,7 @@
 %------------------------------------------------------------------------------
 
 create_exchange_and_queues(Username, LotID) ->
-    erlang:display("---- the_postman:create_exchange_and_queue/2 ----"),
+    %erlang:display("---- the_postman:create_exchange_and_queue/2 ----"),
 
     {Channel, _} = open_all(),
 
@@ -56,7 +56,7 @@ create_exchange_and_queues(Username, LotID) ->
 %------------------------------------------------------------------------------
 
 create_bidder_queue(Username, LotID) ->
-    erlang:display("---- the_postman:create_bidder_queue/4 ----"),
+    %erlang:display("---- the_postman:create_bidder_queue/4 ----"),
     {Channel, Connection} = open_all(),
 
     % create queue for bidder
@@ -72,7 +72,7 @@ create_bidder_queue(Username, LotID) ->
 %------------------------------------------------------------------------------
 
 publish_message(Channel, Exchange, Payload) ->
-	erlang:display("---- the_postman:publish_message/3 ----"),
+	%erlang:display("---- the_postman:publish_message/3 ----"),
 	Publish = #'basic.publish'{exchange = Exchange, routing_key = <<"">>},
 	amqp_channel:cast(Channel, Publish, #amqp_msg{payload = Payload}),
 	ok.
@@ -80,7 +80,7 @@ publish_message(Channel, Exchange, Payload) ->
 %------------------------------------------------------------------------------
 
 publish_direct_to_queue(Channel, QueueName, Payload) ->
-    erlang:display("---- the_postman:publish_direct_to_queue/3 ----"),
+    %erlang:display("---- the_postman:publish_direct_to_queue/3 ----"),
     Publish = #'basic.publish'{exchange = <<"">>, routing_key = QueueName},
     amqp_channel:cast(Channel, Publish, #amqp_msg{payload = Payload}),
     ok.	
@@ -88,7 +88,7 @@ publish_direct_to_queue(Channel, QueueName, Payload) ->
 %------------------------------------------------------------------------------
 
 fetch_message(Channel, Queue) ->
-	erlang:display("---- the_postman:fetch_message/3 ----"),
+	%erlang:display("---- the_postman:fetch_message/3 ----"),
 	Get = #'basic.get'{queue = Queue, no_ack = true},
 	{Record, Content} = amqp_channel:call(Channel, Get),
 	{Record, Content}.
@@ -96,14 +96,14 @@ fetch_message(Channel, Queue) ->
 %------------------------------------------------------------------------------
 
 open_all() ->
-	erlang:display("---- the_postman:open_all ----"),
+	%erlang:display("---- the_postman:open_all ----"),
 	{ok, RabbitConfig} = application:get_env(auctioneer, rabbitmq),
 	
 	Host = misc:find_value(host, RabbitConfig),
 	User = misc:find_value(user, RabbitConfig),
 	Pass = misc:find_value(pass, RabbitConfig),
 	VHost = misc:find_value(virtual_host, RabbitConfig),
-	%erlang:display(VHost),
+	%%erlang:display(VHost),
 
     {ok, Connection} =
          amqp_connection:start(#amqp_params_network{host = Host,

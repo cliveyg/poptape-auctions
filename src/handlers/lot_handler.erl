@@ -15,19 +15,19 @@
 %------------------------------------------------------------------------------
 
 init(Req, Opts) ->
-	erlang:display("---- create_handler:init/2 ----"),
+	%erlang:display("---- create_handler:init/2 ----"),
 	{cowboy_rest, Req, Opts}.
 
 %------------------------------------------------------------------------------
 
 allowed_methods(Req, Opts) ->
-	erlang:display("---- create_handler:allowed_methods/2 ----"),
+	%erlang:display("---- create_handler:allowed_methods/2 ----"),
 	{[<<"POST">>,<<"DELETE">>], Req, Opts}.
 
 %------------------------------------------------------------------------------
 
 is_authorized(Req, Opts) ->
-    erlang:display("---- is_authorized/2 ----"),
+    %erlang:display("---- is_authorized/2 ----"),
     case the_bouncer:checks_guestlist(Req, <<"10">>) of
         200 -> {true, Req, Opts};
         _ -> {{false, <<"">>}, Req, Opts}
@@ -38,7 +38,7 @@ is_authorized(Req, Opts) ->
 %TODO: Check that lot already has record in db (to show that we've already
 %      created an auctioneer instance for this lot
 forbidden(Req, Opts) ->
-    erlang:display("---- forbidden/2 ----"),
+    %erlang:display("---- forbidden/2 ----"),
 
     LotID = cowboy_req:binding(lot_id, Req, false),
     HTTPMethodIsPost = lists:member(cowboy_req:method(Req), [<<"POST">>]),
@@ -65,7 +65,7 @@ forbidden(Req, Opts) ->
 %------------------------------------------------------------------------------
 
 check_resource_and_method(LotID, HTTPMethodIsPost) ->
-    erlang:display("---- check_resource_and_method/2 ----"),
+    %erlang:display("---- check_resource_and_method/2 ----"),
 
     RecExists = case gen_server:call(db_server, {db_exists}) of 
         200 -> misc:check_record_exists(LotID);
@@ -82,7 +82,7 @@ check_resource_and_method(LotID, HTTPMethodIsPost) ->
 %------------------------------------------------------------------------------
 
 delete_resource(Req, Opts) ->
-    erlang:display("---- delete_resource/2 ----"),
+    %erlang:display("---- delete_resource/2 ----"),
 
     LotID = cowboy_req:binding(lot_id, Req, false),
     case gen_server:call(db_server, {delete_rec, LotID}) of
@@ -93,14 +93,14 @@ delete_resource(Req, Opts) ->
 %------------------------------------------------------------------------------
 
 delete_completed(Req, Opts) ->
-    erlang:display("---- delete_completed/2 ----"),
+    %erlang:display("---- delete_completed/2 ----"),
     
     {true, Req, Opts}.
 
 %------------------------------------------------------------------------------
 
 content_types_provided(Req, Opts) ->
-    erlang:display("---- create_handler:content_types_provided/2 ----"),
+    %erlang:display("---- create_handler:content_types_provided/2 ----"),
     {[
             {{<<"application">>, <<"json">>, []}, json_get}
     ], Req, Opts}.
@@ -108,7 +108,7 @@ content_types_provided(Req, Opts) ->
 %------------------------------------------------------------------------------
 
 content_types_accepted(Req, Opts) ->
-	erlang:display("---- create_handler:content_types_accepted/2 ----"),
+	%erlang:display("---- create_handler:content_types_accepted/2 ----"),
   	{[
     		{{<<"application">>, <<"json">>, []}, json_post}
   	], Req, Opts}.
@@ -116,13 +116,13 @@ content_types_accepted(Req, Opts) ->
 %------------------------------------------------------------------------------
 
 json_get(Req, Opts) ->
-    erlang:display("---- create_handler:json_get/2 ----"),
+    %erlang:display("---- create_handler:json_get/2 ----"),
 	{stop, Req, Opts}.
 
 %------------------------------------------------------------------------------
 
 json_post(Req, Opts) ->
-	erlang:display("---- create_handler:json_post/2 ----"),
+	%erlang:display("---- create_handler:json_post/2 ----"),
     AuctionHouseData = erlang:list_to_binary(Opts),
     JsonDecoded = jsx:decode(AuctionHouseData),
     AuctionType = misc:find_value(<<"auction_type">>, JsonDecoded),
@@ -131,18 +131,19 @@ json_post(Req, Opts) ->
     EndTimeFloat = misc:find_value(<<"end_time">>, JsonDecoded),    
     {StartTime, _} = string:to_integer(erlang:float_to_list(StartTimeFloat,[{decimals,0}])),
     {EndTime, _} = string:to_integer(erlang:float_to_list(EndTimeFloat,[{decimals,0}])),
+    StartPrice = misc:find_value(<<"start_price">>, JsonDecoded),
+    ReservePrice = misc:find_value(<<"reserve_price">>, JsonDecoded),
 
-	{ok, Body, Req2} = cowboy_req:read_body(Req),
-
-	BodyDecoded = jsx:decode(Body),
-	Username = misc:find_value(<<"username">>, BodyDecoded),
+	%{ok, Body, Req2} = cowboy_req:read_body(Req),
+	%BodyDecoded = jsx:decode(Body),
+	%Username = misc:find_value(<<"username">>, BodyDecoded),
     LotID = cowboy_req:binding(lot_id, Req, false),
-	StartPrice = misc:find_value(<<"start_price">>, BodyDecoded),
-    ReservePrice = misc:find_value(<<"reserve_price">>, BodyDecoded),
+	%StartPrice = misc:find_value(<<"start_price">>, BodyDecoded),
+    %ReservePrice = misc:find_value(<<"reserve_price">>, BodyDecoded),
 	AuctionID = cowboy_req:binding(auction_id, Req, false),
     XAccessToken = cowboy_req:header(<<"x-access-token">>, Req, ''),
-
     PublicID = misc:get_public_id(XAccessToken),
+    Username = misc:get_username(XAccessToken),
 
     %TODO:
     % here needs to be more data sanitation and testing, yarrrh!
@@ -151,6 +152,7 @@ json_post(Req, Opts) ->
     BidID = misc:get_new_uuid(),
 
 	% matrix for checking the needed fields exist
+    %TODO: Remove this as we get all data directly from the auction ms?
 	{RetCode, Message} = case {Username, LotID, ReservePrice, StartPrice, 
                                AuctionID, StartTime, EndTime} of
 		{false, _, _, _, _, _, _} -> create_bad_response();
@@ -166,16 +168,16 @@ json_post(Req, Opts) ->
                                      AuctionType, MinChange)
 	end,
 
-    Req3 = cowboy_req:set_resp_body(Message, Req2),
-	Req4 = cowboy_req:set_resp_header(<<"content-type">>,"application/json",Req3),
-	cowboy_req:reply(RetCode,Req4),
+    Req2 = cowboy_req:set_resp_body(Message, Req),
+	Req3 = cowboy_req:set_resp_header(<<"content-type">>,"application/json",Req2),
+	cowboy_req:reply(RetCode,Req3),
 
-  	{stop, Req4, Opts}.
+  	{stop, Req3, Opts}.
 
 %------------------------------------------------------------------------------
 
 create_bad_response() ->
-	erlang:display("---- create_handler:create_bad_response/0 ----"),
+	%erlang:display("---- create_handler:create_bad_response/0 ----"),
 
 	Resp2 = "{ \"messaqe\": \"Could not create auction instance. "
        				 "Missing or incorrect parameter(s)\" }",
@@ -186,9 +188,14 @@ create_bad_response() ->
 build_auction_messaging(Username, LotID, ReservePrice, AuctionID,
                         StartPrice, StartTime, EndTime, PublicID,
                         BidID, AuctionType, MinChange) ->
-	erlang:display("---- create_handler:build_auction_messaging/8 ----"),
+	%erlang:display("---- create_handler:build_auction_messaging/8 ----"),
 
     {RetCode, Channel} = the_postman:create_exchange_and_queues(Username, LotID),
+
+    ResMess = case ReservePrice > 0 of
+        true -> <<"Reserve not met">>;
+        _ -> <<"No reserve">>
+    end,    
 
     % Maybe spawn seperate processes for these ops as they can run parallel
 	UnixTime = misc:get_milly_time(),
@@ -199,15 +206,17 @@ build_auction_messaging(Username, LotID, ReservePrice, AuctionID,
                {auction_type, AuctionType},
                {min_change, MinChange},
                {reserve_price, ReservePrice},
+               {reserve_message, ResMess},
 			   {auction_id, AuctionID},
 			   {exchange, LotID},
-			   {current_price, StartPrice},
+			   {start_price, StartPrice},
+               {bid_amount, StartPrice},
                {start_time, StartTime}, % should be in milliseconds
 			   {end_time, EndTime}, % should be in milliseconds
 			   {unixtime, UnixTime},
 		   	   {lot_status, <<"created">>},
                {bid_status, <<"none">>},
-               {message, <<"Your starting price for this lot">>}],
+               {message, <<"Initial lot data">>}],
 
     JsonPayload = jsx:encode(Payload),
 
@@ -216,29 +225,35 @@ build_auction_messaging(Username, LotID, ReservePrice, AuctionID,
 	the_postman:publish_direct_to_queue(Channel, LotID, JsonPayload),
     AuctionHouseQueue = misc:binary_join([LotID, <<"auctionhouse">>], <<"_">>),
     the_postman:publish_direct_to_queue(Channel, AuctionHouseQueue, JsonPayload),
-	
+
+    % create a second bid id as this and prev message have slightly diff info so 
+    % we treat them as unique - may chnage this behaviour in the future
+    AltBidID = misc:get_new_uuid(),
+
 	MinDetails = [{username, Username},
 			      {lot_id, LotID},
-			      {start_price, StartPrice},
-                  {bid_id, BidID},
+			      {bid_amount, StartPrice},
+                  {bid_id, AltBidID},
                   {start_time, StartTime},
 		    	  {end_time, EndTime},
+                  {auction_type, AuctionType},
 			      {unixtime, UnixTime},
-			      {bid_status, <<"201">>},
-                  {lot_status, <<"201">>},
+                  {reserve_message, ResMess},
+			      {bid_status, <<"none">>},
+                  {lot_status, <<"created">>},
 		    	  {message, <<"Opening price">>},
 		      	  {auction_id, AuctionID}],
 
 	JsonDetails = jsx:encode(MinDetails),
 	the_postman:publish_message(Channel, LotID, JsonDetails),
 
-    erlang:display("Messages published..."),
+    %erlang:display("Messages published..."),
 
     % put starting data in the db
     gen_server:call(db_server, {create_db}),
     gen_server:call(db_server, {create_rec, LotID, Payload}),
 
-    erlang:display("Record created in db_table"),
+    %erlang:display("Record created in db_table"),
 	
 	{RetCode, JsonDetails}.
 

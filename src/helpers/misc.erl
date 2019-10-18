@@ -5,6 +5,7 @@
 	 	 binary_join/2,
          get_new_uuid/0,
          get_public_id/1,
+         get_username/1,
          check_record_exists/1,
          binary_to_number/1,
          cash_or_error/1,
@@ -24,7 +25,7 @@ find_value(Key, List) ->
 % this tries to convert incoming money fields to numbers and if it fails due
 % to letters or other stuff being supplied then we return 0 as a number
 cash_or_error(B) ->
-    erlang:display("------------ cash_or_error -------------"),
+    %erlang:display("------------ cash_or_error -------------"),
     try binary_to_number(B)
     catch
         error:badarg -> {error, B}
@@ -33,7 +34,7 @@ cash_or_error(B) ->
 %------------------------------------------------------------------------------
 
 binary_to_number(B) ->
-    erlang:display("------------ binary_to_number -------------"),
+    %erlang:display("------------ binary_to_number -------------"),
     {ok, list_to_number(binary_to_list(B))}.
 
 %------------------------------------------------------------------------------
@@ -48,9 +49,9 @@ list_to_number(L) ->
 %------------------------------------------------------------------------------
 
 check_record_exists(LotID) ->
-    erlang:display("---- check_record_exists/1 ----"),
+    %erlang:display("---- check_record_exists/1 ----"),
 
-    %erlang:display(gen_server:call(db_server, {get_rec, LotID})),
+    %%erlang:display(gen_server:call(db_server, {get_rec, LotID})),
     case gen_server:call(db_server, {get_rec, LotID}) of
         {error,_} -> false;
         {ok,_} -> true
@@ -59,14 +60,22 @@ check_record_exists(LotID) ->
 %------------------------------------------------------------------------------
 
 get_public_id(XAccessToken) ->
+    get_token_value(XAccessToken, <<"public_id">>).
 
-    % get the public id from the jwt
+%------------------------------------------------------------------------------
+
+get_username(XAccessToken) ->
+    get_token_value(XAccessToken, <<"username">>).
+
+%------------------------------------------------------------------------------
+
+get_token_value(XAccessToken, Value) ->
+    % get the value from the jwt
     SplitToken = binary:split(XAccessToken, <<".">>, [global]),
     UserData = lists:nth(2, SplitToken),
     Base64Decoded = bass64url:decode(UserData),
     JWTPayload = jsx:decode(Base64Decoded),
-    PublicID = misc:find_value(<<"public_id">>, JWTPayload),
-    PublicID.
+    misc:find_value(Value, JWTPayload).
 
 %------------------------------------------------------------------------------
 
@@ -86,7 +95,7 @@ get_milly_time() ->
 %------------------------------------------------------------------------------
 
 valid_auction_item(AuctionID, LotID, XAccessToken) ->
-    erlang:display("---- misc:valid_auction_id/2 ----"),
+    %erlang:display("---- misc:valid_auction_id/2 ----"),
 
     % the auctionhouse microservice returns either 200, 401 or 406 normally
     % part of it's checks are that a non-auction lot owner cannot create an

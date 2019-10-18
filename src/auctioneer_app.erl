@@ -8,6 +8,7 @@ start(_Type, _Args) ->
 	%TODO: Add constraints here?
         Dispatch = cowboy_router:compile([
            {'_', [{"/auction/bid/:auction_id/:lot_id", bid_handler, []}, % websocket
+           {"/auction/seller/:lot_id", sell_handler, []}, % websocket
 		   {"/auction/status", status_handler, []}, % http
            {"/auction/:auction_id/:lot_id", lot_handler, []}]} % http
         ]),
