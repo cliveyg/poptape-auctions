@@ -41,16 +41,15 @@ checks_socket_guestlist(XAccessToken, LotID) ->
 
 checks_seller_guestlist(XAccessToken, LotID) ->
     %erlang:display("---- the_bouncer:checks_socket_guestlist/1 ----"),
-    erlang:display(LotID),
-    
+    %erlang:display(LotID),
 
     TokenGood = case token_in_ets(XAccessToken, jwttable) of
         true -> true;
         false -> check_authy(XAccessToken)
     end,
 
-    %RecordExists = misc:check_record_exists(LotID),
-    RecordExists = true,
+    RecordExists = misc:check_record_exists(LotID),
+    %RecordExists = true,
 
     case {TokenGood, RecordExists} of
         {true, true} -> true;

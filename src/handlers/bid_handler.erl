@@ -18,7 +18,9 @@ init(Req, _) ->
 	AuctionID = cowboy_req:binding(auction_id, Req),
 	LotID = cowboy_req:binding(lot_id, Req),
 	Opts = [{auction_id, AuctionID}, {lot_id, LotID}],
-    {cowboy_websocket, Req, Opts, #{idle_timeout => 3000000}}.
+    Req1 = cowboy_req:set_resp_header(<<"sec-websocket-protocol">>,
+                                      <<"json">>, Req),
+    {cowboy_websocket, Req1, Opts, #{idle_timeout => 3000000}}.
 
 %------------------------------------------------------------------------------
 
@@ -38,7 +40,8 @@ websocket_handle({text, Json}, Opts) ->
     Username = misc:find_value(<<"username">>, JsonDecoded),
     BidAmount = misc:find_value(<<"bid_amount">>, JsonDecoded),
     XAccessToken = misc:find_value(<<"x-access-token">>, JsonDecoded),
-    LotID = proplists:get_value(lot_id, Opts),
+    %LotID = proplists:get_value(lot_id, Opts),
+    LotID = misc:find_value(<<"lot_id">>, JsonDecoded),
 
 	InputPropList = [{username, Username},
 			 {bid_amount, BidAmount},
@@ -76,7 +79,6 @@ accept_connection(UserData) ->
     % we already know we have data in db at this point so don't worry about
     % checking for if record exists
 	{_, DBData} = gen_server:call(db_server, {get_rec, LotID}),
-    %erlang:display("+++++++++++++++++++++++++++++++++++++++++++"),
 	{_, YourBid} = misc:binary_to_number(
                        proplists:get_value(bid_amount, UserData)
                    ),
@@ -183,7 +185,7 @@ check_inputs(InputPropList) ->
     OkUsername = length(binary:bin_to_list(
                         proplists:get_value(username, InputPropList))) < 51,
     OkAccessToken = length(binary:bin_to_list(
-                        proplists:get_value(username, InputPropList))) < 1001,
+                        proplists:get_value(x_access_token, InputPropList))) < 1001,
     {Status, _} = misc:cash_or_error(proplists:get_value(bid_amount, InputPropList)),
 
     case {OkUsername, OkAccessToken, Status} of

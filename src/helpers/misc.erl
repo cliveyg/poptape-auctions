@@ -51,7 +51,6 @@ list_to_number(L) ->
 check_record_exists(LotID) ->
     %erlang:display("---- check_record_exists/1 ----"),
 
-    %%erlang:display(gen_server:call(db_server, {get_rec, LotID})),
     case gen_server:call(db_server, {get_rec, LotID}) of
         {error,_} -> false;
         {ok,_} -> true
