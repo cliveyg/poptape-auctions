@@ -84,6 +84,7 @@ accept_connection(UserData) ->
                    ),
     EndTime = proplists:get_value(end_time, DBData),
 	UnixTime = misc:get_milly_time(),
+    PublicID = misc:get_public_id(proplists:get_value(x_access_token, UserData)),
     StoredBid = proplists:get_value(bid_amount, DBData),
     AuctionType = proplists:get_value(auction_type, DBData),
     MinChange = proplists:get_value(min_change, DBData),
@@ -110,6 +111,7 @@ accept_connection(UserData) ->
     end,
 
     OutData = [{username, Username},
+               {public_id, PublicID},
                {lot_id, LotID},
                {bid_id, BidID},
                {unixtime, UnixTime},
@@ -123,7 +125,6 @@ accept_connection(UserData) ->
                {start_time, proplists:get_value(start_time, DBData)},
                {end_time, EndTime}],
 
-    PublicID = misc:get_public_id(proplists:get_value(x_access_token, UserData)),
     UpdatedDBData = [
         {record_type, <<"FULL AUDIT">>},
         {current_winner, CurrentWinner},

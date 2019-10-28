@@ -231,6 +231,7 @@ build_auction_messaging(Username, LotID, ReservePrice, AuctionID,
     AltBidID = misc:get_new_uuid(),
 
 	MinDetails = [{username, Username},
+                  {public, PublicID},
 			      {lot_id, LotID},
 			      {bid_amount, StartPrice},
                   {bid_id, AltBidID},
