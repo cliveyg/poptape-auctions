@@ -10,6 +10,7 @@
          binary_to_number/1,
          cash_or_error/1,
          to_timestamp/1,
+         rebuild_bid/1,
 	 	 valid_auction_item/3]).
 
 %------------------------------------------------------------------------------
@@ -51,9 +52,13 @@ list_to_number(L) ->
 check_record_exists(LotID) ->
     %erlang:display("---- check_record_exists/1 ----"),
 
+    % this is here to create table if none exists - such 
+    % as after a server reboot
+    gen_server:call(db_server, {create_db}),
+
     case gen_server:call(db_server, {get_rec, LotID}) of
-        {error,_} -> false;
-        {ok,_} -> true
+        {ok,_} -> true;
+        {error,_} -> false
     end.
 
 %------------------------------------------------------------------------------
@@ -110,6 +115,82 @@ valid_auction_item(AuctionID, LotID, XAccessToken) ->
                                                      Options),
     {ok, Body} = hackney:body(ClientRef),
 	{StatusCode, Body}.
+
+%------------------------------------------------------------------------------
+
+rebuild_bid(LotID) ->
+    %erlang:display("---- misc:rebuild_bid/2 ----"),
+
+    % the auctionhouse microservice returns either 200, 401 or 406 normally
+    % part of it's checks are that a non-auction lot owner cannot create an
+    % auctioneer instance
+    {ok, AuctionURL} = application:get_env(auctioneer, auctionhouse_url),
+    URL = [AuctionURL, <<"lot/">>, LotID, <<"/">>],
+    Headers = [{<<"Content-Type">>, <<"application/json">>}],
+               %{<<"x-access-token">>, XAccessToken}],
+    Payload = <<>>,
+    Options = [],
+    {ok, StatusCode, _, ClientRef} = hackney:request(get, URL,
+                                                     Headers, Payload,
+                                                     Options),
+    {ok, Body} = hackney:body(ClientRef),
+
+    case StatusCode of
+        200 -> create_record_again(Body, LotID);
+        _ -> false
+    end.
+
+%------------------------------------------------------------------------------
+
+create_record_again(Body, LotID) ->
+    %erlang:display("---- misc:create_record_again/2 ----"),
+
+    JsonDecoded = jsx:decode(Body),
+    AuctionType = misc:find_value(<<"auction_type">>, JsonDecoded),
+    MinChange = misc:find_value(<<"min_change">>, JsonDecoded),
+    StartTimeFloat = misc:find_value(<<"start_time">>, JsonDecoded),
+    EndTimeFloat = misc:find_value(<<"end_time">>, JsonDecoded),
+    {StartTime, _} = string:to_integer(erlang:float_to_list(StartTimeFloat,[{decimals,0}])),
+    {EndTime, _} = string:to_integer(erlang:float_to_list(EndTimeFloat,[{decimals,0}])),
+    StartPrice = misc:find_value(<<"start_price">>, JsonDecoded),
+    ReservePrice = misc:find_value(<<"reserve_price">>, JsonDecoded),
+    PublicID = misc:find_value(<<"public_id">>, JsonDecoded),
+    AuctionID = misc:find_value(<<"auction_id">>, JsonDecoded),
+
+    % get bid data
+    Bids = misc:find_value(<<"bids">>, JsonDecoded),
+    LatestBid = lists:nth(1, Bids),
+    BidID = misc:find_value(<<"bid_id">>,LatestBid),
+    Username = misc:find_value(<<"username">>,LatestBid),
+    ResMess = misc:find_value(<<"reserve_message">>, LatestBid),
+    UnixTime = misc:find_value(<<"unixtime">>, LatestBid),
+
+    % convert incoming to a number
+    {_, BidAmount} = misc:binary_to_number(misc:find_value(<<"bid_amount">>, LatestBid)),
+    
+    Payload = [{username, Username},
+               {public_id, PublicID},
+               {lot_id, LotID},
+               {bid_id, BidID},
+               {bid_history_exists, true},
+               {auction_type, AuctionType},
+               {min_change, MinChange},
+               {reserve_price, ReservePrice},
+               {reserve_message, ResMess},
+               {auction_id, AuctionID},
+               {exchange, LotID},
+               {start_price, StartPrice},
+               {bid_amount, BidAmount},
+               {start_time, StartTime}, % should be in milliseconds
+               {end_time, EndTime}, % should be in milliseconds
+               {unixtime, UnixTime},
+               {lot_status, <<"Rebuilt after server down">>},
+               {bid_status, <<"none">>},
+               {message, <<"Latest bid data">>}],
+
+    gen_server:call(db_server, {create_rec, LotID, Payload}),
+
+    true.
 
 %------------------------------------------------------------------------------
 

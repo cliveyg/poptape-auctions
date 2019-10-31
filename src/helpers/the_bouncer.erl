@@ -32,16 +32,34 @@ checks_socket_guestlist(XAccessToken, LotID) ->
 
     RecordExists = misc:check_record_exists(LotID),
 
-    case {TokenGood, RecordExists} of
+    %TODO: what to do if record doesn't exist
+    %case RecordExists of
+    % need to build record from auctionhouse if doesn't exist
+    AuctionGood = case RecordExists of
+        true -> true;
+        false -> misc:rebuild_bid(LotID)
+    end,
+
+    case {TokenGood, AuctionGood} of
         {true, true} -> true;
         {_, _} -> false
     end.
 
 %------------------------------------------------------------------------------
 
+%rebuild_from_auditor(LotID) ->
+%    erlang:display("---- the_bouncer:rebuild_from_auditor/1 ----"),
+%    erlang:display(LotID),
+%    %TODO: we will rebuild from the auctionhouse at the moment. 
+%    % in future we should rebuild from the auditor ms as this wil have 
+%    % everything
+%
+%    false.
+
+%------------------------------------------------------------------------------
+
 checks_seller_guestlist(XAccessToken, LotID) ->
-    %erlang:display("---- the_bouncer:checks_socket_guestlist/1 ----"),
-    %erlang:display(LotID),
+    %erlang:display("---- the_bouncer:checks_seller_guestlist/1 ----"),
 
     TokenGood = case token_in_ets(XAccessToken, jwttable) of
         true -> true;
@@ -49,9 +67,16 @@ checks_seller_guestlist(XAccessToken, LotID) ->
     end,
 
     RecordExists = misc:check_record_exists(LotID),
-    %RecordExists = true,
 
-    case {TokenGood, RecordExists} of
+    %TODO: what to do if record doesn't exist
+    %case RecordExists of
+    % need to build record from auctionhouse if doesn't exist
+    AuctionGood = case RecordExists of
+        true -> true;
+        false -> misc:rebuild_bid(LotID)
+    end,
+
+    case {TokenGood, AuctionGood} of
         {true, true} -> true;
         {_, _} -> false
     end.

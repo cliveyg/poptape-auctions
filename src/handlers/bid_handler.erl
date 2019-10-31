@@ -82,6 +82,7 @@ accept_connection(UserData) ->
 	{_, YourBid} = misc:binary_to_number(
                        proplists:get_value(bid_amount, UserData)
                    ),
+
     EndTime = proplists:get_value(end_time, DBData),
 	UnixTime = misc:get_milly_time(),
     PublicID = misc:get_public_id(proplists:get_value(x_access_token, UserData)),
@@ -124,6 +125,7 @@ accept_connection(UserData) ->
                {auction_id, proplists:get_value(auction_id, DBData)},
                {start_time, proplists:get_value(start_time, DBData)},
                {end_time, EndTime}],
+
 
     UpdatedDBData = [
         {record_type, <<"FULL AUDIT">>},

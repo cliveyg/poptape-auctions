@@ -45,7 +45,8 @@ create_exchange_and_queues(Username, LotID) ->
     % this ensures that the auction/lot data is up to date
     %AuctionHouseQueue = misc:concat([LotID,<<"_auctionhouse">>]),
     AuctionHouseQueue = misc:binary_join([LotID, <<"auctionhouse">>], <<"_">>),
-    #'queue.declare_ok'{} = amqp_channel:call(Channel, #'queue.declare'{queue = AuctionHouseQueue}),
+    #'queue.declare_ok'{} = amqp_channel:call(Channel, #'queue.declare'{queue = AuctionHouseQueue,
+                                                                        durable = true}),
     Binding3 = #'queue.bind'{queue       = AuctionHouseQueue,
                              exchange    = LotID,
                              routing_key = <<"">>},
@@ -58,6 +59,11 @@ create_exchange_and_queues(Username, LotID) ->
 create_bidder_queue(Username, LotID) ->
     %erlang:display("---- the_postman:create_bidder_queue/4 ----"),
     {Channel, Connection} = open_all(),
+
+    % redeclare the exchange just in case the server went down
+    ExchangeDeclare = #'exchange.declare'{exchange = LotID,
+                                          type = <<"fanout">>},
+    #'exchange.declare_ok'{} = amqp_channel:call(Channel, ExchangeDeclare),
 
     % create queue for bidder
 	QueueName = misc:binary_join([LotID, Username], <<"_">>),
@@ -73,17 +79,24 @@ create_bidder_queue(Username, LotID) ->
 
 publish_message(Channel, Exchange, Payload) ->
 	%erlang:display("---- the_postman:publish_message/3 ----"),
+    % all messages are persistent as it doesn't matter if we publish to non 
+    % persistent queue/exchange as it won't persist anyway
 	Publish = #'basic.publish'{exchange = Exchange, routing_key = <<"">>},
-	amqp_channel:cast(Channel, Publish, #amqp_msg{payload = Payload}),
+    Props = #'P_basic'{delivery_mode = 2}, %% persistent message
+    Msg = #amqp_msg{props = Props, payload = Payload},
+	amqp_channel:cast(Channel, Publish, Msg),
 	ok.
 
 %------------------------------------------------------------------------------
 
 publish_direct_to_queue(Channel, QueueName, Payload) ->
     %erlang:display("---- the_postman:publish_direct_to_queue/3 ----"),
+
     Publish = #'basic.publish'{exchange = <<"">>, routing_key = QueueName},
-    amqp_channel:cast(Channel, Publish, #amqp_msg{payload = Payload}),
-    ok.	
+    Props = #'P_basic'{delivery_mode = 2}, %% persistent message
+    Msg = #amqp_msg{props = Props, payload = Payload},
+    amqp_channel:cast(Channel, Publish, Msg),
+    ok.
 
 %------------------------------------------------------------------------------
 

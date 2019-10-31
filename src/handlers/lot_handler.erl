@@ -133,6 +133,7 @@ json_post(Req, Opts) ->
     {EndTime, _} = string:to_integer(erlang:float_to_list(EndTimeFloat,[{decimals,0}])),
     StartPrice = misc:find_value(<<"start_price">>, JsonDecoded),
     ReservePrice = misc:find_value(<<"reserve_price">>, JsonDecoded),
+    BidHistoryExists = misc:find_value(<<"bid_history_exists">>, JsonDecoded),
 
 	%{ok, Body, Req2} = cowboy_req:read_body(Req),
 	%BodyDecoded = jsx:decode(Body),
@@ -165,7 +166,7 @@ json_post(Req, Opts) ->
 		_ -> build_auction_messaging(Username, LotID, ReservePrice, 
 								     AuctionID, StartPrice, StartTime, 
                                      EndTime, PublicID, BidID,
-                                     AuctionType, MinChange)
+                                     AuctionType, MinChange, BidHistoryExists)
 	end,
 
     Req2 = cowboy_req:set_resp_body(Message, Req),
@@ -187,7 +188,7 @@ create_bad_response() ->
 
 build_auction_messaging(Username, LotID, ReservePrice, AuctionID,
                         StartPrice, StartTime, EndTime, PublicID,
-                        BidID, AuctionType, MinChange) ->
+                        BidID, AuctionType, MinChange, BidHistoryExists) ->
 	%erlang:display("---- create_handler:build_auction_messaging/8 ----"),
 
     {RetCode, Channel} = the_postman:create_exchange_and_queues(Username, LotID),
@@ -203,6 +204,7 @@ build_auction_messaging(Username, LotID, ReservePrice, AuctionID,
                {public_id, PublicID},
                {lot_id, LotID},
                {bid_id, BidID},
+               {bid_history_exists, BidHistoryExists},
                {auction_type, AuctionType},
                {min_change, MinChange},
                {reserve_price, ReservePrice},
