@@ -1,0 +1,21 @@
+{application, auctioneer,
+ [{description, "An OTP application for a bidding microservice"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {mod, {auctioneer_app, []}},
+  {applications,
+   [kernel,
+    stdlib,
+    cowboy,
+    hackney,
+    uuid,
+    jiffy,
+    jsx,
+    amqp_client
+   ]},
+  {env,[]},
+  {modules, []},
+
+  {licenses, ["Apache-2.0"]},
+  {links, []}
+ ]}.
