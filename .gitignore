@@ -1,0 +1,8 @@
+# Ignore everything in the root
+/*
+# Un-ignore these files - it's bit of a clonky way to do it but it's more secure
+!src/
+!rebar.config
+!LICENCE
+!README.md
+!.gitignore
