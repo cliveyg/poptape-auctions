@@ -120,9 +120,9 @@ open_all() ->
 
     {ok, Connection} =
          amqp_connection:start(#amqp_params_network{host = Host,
-							 					    username = User,
-						   							virtual_host = VHost,
-						   							password = Pass}),
+                                                    username = User,
+                                                    virtual_host = VHost,
+                                                    password = Pass}),
 	{ok, Channel} = amqp_connection:open_channel(Connection),	
         
 	{Channel, Connection}.	

@@ -1,6 +1,6 @@
 {application, auctioneer,
  [{description, "An OTP application for a bidding microservice"},
-  {vsn, "0.1.0"},
+  {vsn, "0.2.0"},
   {registered, []},
   {mod, {auctioneer_app, []}},
   {applications,

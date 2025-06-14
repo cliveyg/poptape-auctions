@@ -1,0 +1,14 @@
+services:
+  auctioneer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: poptape/auctioneer:v0.1.5
+    ports:
+      - "1252:9000"
+    restart: no
+    networks:
+      - poptape
+networks:
+  poptape:
+    external: true
