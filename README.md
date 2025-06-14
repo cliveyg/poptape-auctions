@@ -77,11 +77,18 @@ rebar3 compile
 rebar3 release
 ```
 
-Release version is found in _rebar.config_ and the releases can be found under the __releases_ directory.
+Release version is found in _rebar.config_ and the releases can be found under the __build_ directory.
 
+I currently cannot get this app to compile on my Apple Silicon Mac so instead I have dockerized it. 
+
+### Docker:
+To run in a docker container I am using the following command: `docker compose up -d --build --remove-orphans`
+
+Docker compose is set up to use alpine versions to reduce the container/image footprint.
 
 ### Notes:
 * Very early pre-alpha. Works(ish). No data sanitization or much other checking.
+* Docker version uses Erlang/OTP version 26 as the later versions (27,28) are not supported by the _amqp_client/rabbit_common_ modules at this time.
 
 ### TODO:
 * Need to add a check that create has been called before or not. Currently store a value in

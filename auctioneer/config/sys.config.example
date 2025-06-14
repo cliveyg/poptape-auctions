@@ -7,7 +7,6 @@
             {user, <<"username">>},
             {pass, <<"supersecretpass">>}
             {virtual_host, <<"vhost">>}
-        ]},
-        {password, <<"WOOOOO">>}
+        ]}
     ]}
 ].
