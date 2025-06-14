@@ -68,6 +68,18 @@ the opposite!
 TBD
 ```
 
+### Build process:
+Switched to rebar3 for building the binaries as this is the new standard for erlang/OTP apps.
+
+```
+rebar3 compile
+
+rebar3 release
+```
+
+Release version is found in _rebar.config_ and the releases can be found under the __releases_ directory.
+
+
 ### Notes:
 * Very early pre-alpha. Works(ish). No data sanitization or much other checking.
 

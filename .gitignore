@@ -1,8 +1,13 @@
 # Ignore everything in the root
 /*
 # Un-ignore these files - it's bit of a clonky way to do it but it's more secure
-!src/
+!auctioneer/src/*
 !rebar.config
 !LICENCE
 !README.md
 !.gitignore
+!auctioneer/config/sys.config.example
+!auctioneer/config/vm.args
+!_build/prod/rel/auctioneer/*
+!docker-compose.yml
+!Dockerfile
