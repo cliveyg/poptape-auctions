@@ -3,10 +3,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: poptape/auctioneer:v0.1.5
+    image: poptape/auctioneer:v0.2.5
     ports:
       - "1252:9000"
-    restart: no
+    restart: yes
     networks:
       - poptape
 networks:
