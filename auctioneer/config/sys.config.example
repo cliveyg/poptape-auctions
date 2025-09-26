@@ -2,6 +2,7 @@
     {auctioneer, [
 	    {auctionhouse_url, <<"https://yourauctionmicroservice.com">>},
       	{authy_url, <<"https://yourauthenticator.com">>},
+      	{ssl_env, "prod"},
         {rabbitmq, [
             {host, "localhost"},
             {user, <<"username">>},

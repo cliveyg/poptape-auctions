@@ -105,16 +105,29 @@ valid_auction_item(AuctionID, LotID, XAccessToken) ->
     % part of it's checks are that a non-auction lot owner cannot create an
     % auctioneer instance
 	{ok, AuctionURL} = application:get_env(auctioneer, auctionhouse_url),
-    URL = [AuctionURL, AuctionID, <<"/">>, LotID, <<"/">>],
+    % URL = [AuctionURL, AuctionID, <<"/">>, LotID, <<"/">>],
+    URL = [AuctionURL, "status"],
 	Headers = [{<<"Content-Type">>, <<"application/json">>},
                {<<"x-access-token">>, XAccessToken}],
 	Payload = <<>>,
-	Options = [],
-	{ok, StatusCode, _, ClientRef} = hackney:request(get, URL,
-                                                     Headers, Payload,
-                                                     Options),
-    {ok, Body} = hackney:body(ClientRef),
-	{StatusCode, Body}.
+    Env = case application:get_env(auctioneer, ssl_env) of
+        {ok, EnvVal} -> EnvVal;
+        _ -> undefined
+    end,
+    Options = case Env of
+        "dev" -> [{insecure, true}];
+        _ -> []
+    end,
+    % LogMsg = io_lib:format("URL: ~p~n", [URL]),
+    % file:write_file("/auctioneer/log/poptape_auctioneer.log", LogMsg, [append]),
+    Result = hackney:request(get, URL, Headers, Payload, Options),
+    case Result of
+        {ok, StatusCode, _, ClientRef} ->
+            {ok, Body} = hackney:body(ClientRef),
+            {StatusCode, Body};
+        {error, Reason} ->
+            {error, Reason}
+    end.
 
 %------------------------------------------------------------------------------
 
@@ -129,7 +142,14 @@ rebuild_bid(LotID) ->
     Headers = [{<<"Content-Type">>, <<"application/json">>}],
                %{<<"x-access-token">>, XAccessToken}],
     Payload = <<>>,
-    Options = [],
+    Env = case application:get_env(auctioneer, ssl_env) of
+        {ok, EnvVal} -> EnvVal;
+        _ -> undefined
+    end,
+    Options = case Env of
+        "dev" -> [{insecure, true}];
+        _ -> []
+    end,
     {ok, StatusCode, _, ClientRef} = hackney:request(get, URL,
                                                      Headers, Payload,
                                                      Options),
@@ -167,7 +187,7 @@ create_record_again(Body, LotID) ->
 
     % convert incoming to a number
     {_, BidAmount} = misc:binary_to_number(misc:find_value(<<"bid_amount">>, LatestBid)),
-    
+
     Payload = [{username, Username},
                {public_id, PublicID},
                {lot_id, LotID},
@@ -196,7 +216,7 @@ create_record_again(Body, LotID) ->
 
 to_timestamp({{Year,Month,Day},{Hours,Minutes,Seconds}}) ->
     (calendar:datetime_to_gregorian_seconds(
-        {{Year,Month,Day},{Hours,Minutes,Seconds}}) 
+        {{Year,Month,Day},{Hours,Minutes,Seconds}})
     - 62167219200)
     * 1000000.
 
