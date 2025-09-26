@@ -105,8 +105,7 @@ valid_auction_item(AuctionID, LotID, XAccessToken) ->
     % part of it's checks are that a non-auction lot owner cannot create an
     % auctioneer instance
 	{ok, AuctionURL} = application:get_env(auctioneer, auctionhouse_url),
-    % URL = [AuctionURL, AuctionID, <<"/">>, LotID, <<"/">>],
-    URL = [AuctionURL, "status"],
+    URL = [AuctionURL, AuctionID, <<"/lot/">>, LotID, <<"/">>],
 	Headers = [{<<"Content-Type">>, <<"application/json">>},
                {<<"x-access-token">>, XAccessToken}],
 	Payload = <<>>,

@@ -1,7 +1,7 @@
 [
     {auctioneer, [
-	    {auctionhouse_url, <<"https://yourauctionmicroservice.com">>},
-      	{authy_url, <<"https://yourauthenticator.com">>},
+	    {auctionhouse_url, <<"https://yourauctionmicroservice.com/auctionhouse/auction/">>},
+      	{authy_url, <<"https://yourauthenticator.com/authy/checkaccess/">>},
       	{ssl_env, "prod"},
         {rabbitmq, [
             {host, "localhost"},

@@ -17,7 +17,7 @@ checks_guestlist(Req, Level) ->
 
 %------------------------------------------------------------------------------
 % we check the jwt against the authy microservice just once when using 
-% websockets. if successfull we store the jwt in ets. 
+% websockets. if successful we store the jwt in ets.
 % all subsequent messages from the client websocket will be checked to see if
 % the jwt exists in ets. this saves on repeated calls to authy. should be
 % faster.
